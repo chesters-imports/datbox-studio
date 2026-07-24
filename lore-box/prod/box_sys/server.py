@@ -401,7 +401,11 @@ class Handler(SimpleHTTPRequestHandler):
 def main() -> None:
     ensure_dirs()
     httpd = ThreadingHTTPServer((HOST, PORT), Handler)
-    print(f"loreBOX desk  http://{HOST}:{PORT}/")
+    # B5: cute tester host — *.localhost resolves to loopback in modern browsers (no hosts file).
+    cute = f"http://datbox.lorebox.localhost:{PORT}/"
+    plain = f"http://{HOST}:{PORT}/"
+    print(f"loreBOX desk  {cute}")
+    print(f"              {plain}")
     print(f"safe_box      {SAFE_BOX}")
     print(f"box_sets      {BOX_SETS}")
     print("Ctrl+C to stop")

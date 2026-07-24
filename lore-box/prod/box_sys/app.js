@@ -9,6 +9,8 @@ const state = {
   box: null,
   card: null,
   dirty: false,
+  cardMode: "edit", // "edit" | "view" (B13)
+  railCollapsed: false,
 };
 
 async function api(path, opts = {}) {
@@ -38,8 +40,56 @@ function setStatus(msg, isErr = false) {
 
 function markDirty(v = true) {
   state.dirty = v;
+  updateCardModeButtons();
+}
+
+function setCardMode(mode) {
+  state.cardMode = mode === "view" ? "view" : "edit";
+  const edit = $("#card-edit");
+  const view = $("#card-view");
+  if (edit) edit.hidden = state.cardMode !== "edit";
+  if (view) view.hidden = state.cardMode !== "view";
+  updateCardModeButtons();
+  if (state.cardMode === "view") fillCardView();
+}
+
+function updateCardModeButtons() {
   const save = $("#btn-save");
-  if (save) save.disabled = !state.box || !state.card || !v;
+  const editBtn = $("#btn-edit-card");
+  const hasCard = !!(state.box && state.card);
+  if (save) {
+    const showSave = hasCard && state.cardMode === "edit";
+    save.hidden = !showSave;
+    save.disabled = !showSave || !state.dirty;
+  }
+  if (editBtn) {
+    editBtn.hidden = !(hasCard && state.cardMode === "view");
+  }
+}
+
+function fillCardView() {
+  if (!state.card) return;
+  const g = state.card.gravity ?? 0;
+  $("#v-headliner").textContent = state.card.headliner || "(no headliner)";
+  $("#v-slugline").textContent = state.card.slugline || "—";
+  $("#v-prime").textContent = state.card.prime_lore || "—";
+  $("#v-core").textContent = state.card.lore_core || state.card.lore_code || "—";
+  $("#v-gravity").textContent = g === 0 ? "0 · unset" : String(g);
+}
+
+function setRailCollapsed(collapsed) {
+  state.railCollapsed = !!collapsed;
+  const app = $("#app");
+  if (app) app.classList.toggle("rail-collapsed", state.railCollapsed);
+  const toggle = $("#btn-rail-toggle");
+  if (toggle) {
+    toggle.setAttribute("aria-expanded", state.railCollapsed ? "false" : "true");
+    toggle.title = state.railCollapsed ? "Open safe box" : "Collapse safe box";
+  }
+}
+
+function toggleRail() {
+  setRailCollapsed(!state.railCollapsed);
 }
 
 /** A2/A3: clear loaded context when nothing is selected */
@@ -59,8 +109,8 @@ function clearSelection(opts = {}) {
 function clearContextFields() {
   const name = $("#meta-box-name");
   const stem = $("#meta-stem");
-  if (name) name.value = "";
-  if (stem) stem.value = "";
+  if (name) name.textContent = "—";
+  if (stem) stem.textContent = "—";
   const chrome = $("#chrome-meta");
   if (chrome) chrome.textContent = "DATBOX Studio · select a box in safe_box";
 }
@@ -77,6 +127,7 @@ function clearEditorFields() {
   if (core) core.textContent = "—";
   const relList = $("#rel-list");
   if (relList) relList.innerHTML = "";
+  hideRelForm();
 }
 
 /* ---------- load ---------- */
@@ -148,8 +199,8 @@ function renderMainPane() {
     return;
   }
 
-  $("#meta-box-name").value = state.box.box_name || "";
-  $("#meta-stem").value = state.box.stem || "";
+  $("#meta-box-name").textContent = state.box.box_name || "—";
+  $("#meta-stem").textContent = state.box.stem || "—";
   $("#chrome-meta").textContent = `${state.box.stem}.lore · ${state.box.box_name}`;
 }
 
@@ -195,9 +246,11 @@ function renderCardList() {
     btn.innerHTML = `<span>${escapeHtml(c.headliner || "(no headliner)")}</span>
       <span class="sub">${escapeHtml(c.lore_code || "")}${g}</span>`;
     btn.addEventListener("click", () => {
-      if (state.dirty && !confirm("Discard unsaved edits on this card?")) return;
+      if (state.dirty && state.cardMode === "edit" && !confirm("Discard unsaved edits on this card?"))
+        return;
       state.card = c;
       markDirty(false);
+      setCardMode("view"); // existing cards open as display
       renderCardList();
       renderEditor();
     });
@@ -216,8 +269,7 @@ function renderEditor() {
     clearEditorFields();
     const del = $("#btn-del-card");
     if (del) del.disabled = true;
-    const save = $("#btn-save");
-    if (save) save.disabled = true;
+    updateCardModeButtons();
     return;
   }
   empty.hidden = true;
@@ -226,14 +278,29 @@ function renderEditor() {
   $("#f-headliner").value = state.card.headliner || "";
   $("#f-slugline").value = state.card.slugline || "";
   $("#f-prime").value = state.card.prime_lore || "";
-  $("#f-core").textContent = state.card.lore_core || state.card.lore_code || "";
+  $("#f-core").textContent = state.card.lore_core || state.card.lore_code || "—";
   $("#f-gravity").value = String(state.card.gravity ?? 0);
+  fillCardView();
+  setCardMode(state.cardMode);
 
   const del = $("#btn-del-card");
   if (del) del.disabled = false;
 
+  hideRelForm();
   renderRelates();
-  markDirty(state.dirty);
+  updateCardModeButtons();
+}
+
+function hideRelForm() {
+  const form = $("#rel-form");
+  if (form) form.hidden = true;
+}
+
+function showRelForm() {
+  const form = $("#rel-form");
+  if (!form) return;
+  form.hidden = false;
+  fillRelateBoxSelect();
 }
 
 function fillRelationTypeSelect() {
@@ -357,26 +424,201 @@ async function saveCard() {
   state.box = data.box;
   state.card = data.card;
   markDirty(false);
+  setCardMode("view");
   await refreshBoxes();
   await refreshCatalog();
   renderAll();
   setStatus(`Saved ${code}`);
 }
 
+/** B4: drag dialog by chrome */
+function enableDialogDrag(dlg) {
+  const handle = dlg.querySelector(".dlg-chrome");
+  if (!handle) return () => {};
+  let ox = 0;
+  let oy = 0;
+  let dragging = false;
+
+  function onDown(e) {
+    if (e.button !== 0) return;
+    if (e.target.closest("button, input, a")) return;
+    dragging = true;
+    const rect = dlg.getBoundingClientRect();
+    // switch from centered flex child to fixed coords
+    dlg.style.position = "fixed";
+    dlg.style.margin = "0";
+    dlg.style.left = `${rect.left}px`;
+    dlg.style.top = `${rect.top}px`;
+    dlg.style.right = "auto";
+    dlg.style.transform = "none";
+    ox = e.clientX - rect.left;
+    oy = e.clientY - rect.top;
+    handle.classList.add("dragging");
+    e.preventDefault();
+  }
+  function onMove(e) {
+    if (!dragging) return;
+    const w = dlg.offsetWidth;
+    const h = dlg.offsetHeight;
+    let x = e.clientX - ox;
+    let y = e.clientY - oy;
+    x = Math.max(8, Math.min(x, window.innerWidth - w - 8));
+    y = Math.max(8, Math.min(y, window.innerHeight - h - 8));
+    dlg.style.left = `${x}px`;
+    dlg.style.top = `${y}px`;
+  }
+  function onUp() {
+    if (!dragging) return;
+    dragging = false;
+    handle.classList.remove("dragging");
+  }
+  handle.addEventListener("mousedown", onDown);
+  window.addEventListener("mousemove", onMove);
+  window.addEventListener("mouseup", onUp);
+  return () => {
+    handle.removeEventListener("mousedown", onDown);
+    window.removeEventListener("mousemove", onMove);
+    window.removeEventListener("mouseup", onUp);
+    handle.classList.remove("dragging");
+  };
+}
+
+/** B3: themed modal — returns {ok, values} or {ok:false} */
+function openDialog({ title, okLabel = "OK", fields, onMount }) {
+  return new Promise((resolve) => {
+    const overlay = $("#dlg-overlay");
+    const dlg = overlay.querySelector(".dlg");
+    const body = $("#dlg-body");
+    const titleEl = $("#dlg-title");
+    const btnOk = $("#dlg-ok");
+    const btnCancel = $("#dlg-cancel");
+    titleEl.textContent = title;
+    btnOk.textContent = okLabel;
+    body.innerHTML = "";
+
+    // reset position (centered via CSS) each open
+    dlg.style.position = "";
+    dlg.style.left = "";
+    dlg.style.top = "";
+    dlg.style.right = "";
+    dlg.style.margin = "";
+    dlg.style.transform = "";
+
+    const inputs = {};
+    for (const f of fields) {
+      const wrap = document.createElement("div");
+      wrap.className = "field";
+      const lab = document.createElement("span");
+      lab.textContent = f.label;
+      const input = document.createElement("input");
+      input.type = f.type || "text";
+      input.id = `dlg-f-${f.name}`;
+      input.value = f.value || "";
+      input.autocomplete = "off";
+      if (f.readonly) input.readOnly = true;
+      wrap.appendChild(lab);
+      wrap.appendChild(input);
+      if (f.hint) {
+        const h = document.createElement("p");
+        h.className = "dlg-hint";
+        h.textContent = f.hint;
+        wrap.appendChild(h);
+      }
+      body.appendChild(wrap);
+      inputs[f.name] = input;
+    }
+
+    const stopDrag = enableDialogDrag(dlg);
+
+    function cleanup(result) {
+      stopDrag();
+      overlay.hidden = true;
+      btnOk.onclick = null;
+      btnCancel.onclick = null;
+      overlay.onkeydown = null;
+      resolve(result);
+    }
+
+    btnCancel.onclick = () => cleanup({ ok: false });
+    btnOk.onclick = () => {
+      const values = {};
+      for (const f of fields) {
+        values[f.name] = inputs[f.name].value;
+      }
+      cleanup({ ok: true, values, inputs });
+    };
+    overlay.onkeydown = (e) => {
+      if (e.key === "Escape") cleanup({ ok: false });
+      if (e.key === "Enter" && e.target.tagName === "INPUT") {
+        e.preventDefault();
+        btnOk.click();
+      }
+    };
+
+    overlay.hidden = false;
+    if (onMount) onMount(inputs);
+    const first = fields.find((f) => !f.readonly);
+    if (first) inputs[first.name].focus();
+  });
+}
+
 async function newBox() {
-  const name = prompt("Lore Box Name?");
-  if (!name || !name.trim()) return;
-  const stemData = await api(
-    `/api/stem?name=${encodeURIComponent(name.trim())}`
-  );
-  let stem = stemData.stem;
-  const edit = prompt("TYPE A stem (edit if needed):", stem);
-  if (edit === null) return;
-  stem = (edit || stem).trim();
+  const dlg = await openDialog({
+    title: "New lore box",
+    okLabel: "Create",
+    fields: [
+      {
+        name: "box_name",
+        label: "Lore box name",
+        value: "",
+        hint: "Display name for this DATBOX.",
+      },
+      {
+        name: "stem",
+        label: "Stem (TYPE A)",
+        value: "",
+        hint: "Auto from name — edit if needed. File will be {STEM}.lore",
+      },
+    ],
+    onMount(inputs) {
+      let t = null;
+      const syncStem = () => {
+        clearTimeout(t);
+        t = setTimeout(async () => {
+          const n = inputs.box_name.value.trim();
+          if (!n) return;
+          try {
+            const s = await api(`/api/stem?name=${encodeURIComponent(n)}`);
+            if (document.activeElement !== inputs.stem) {
+              inputs.stem.value = s.stem;
+            }
+          } catch {
+            /* ignore while typing */
+          }
+        }, 180);
+      };
+      inputs.box_name.addEventListener("input", syncStem);
+    },
+  });
+  if (!dlg.ok) return;
+  const name = (dlg.values.box_name || "").trim();
+  let stem = (dlg.values.stem || "").trim();
+  if (!name) {
+    setStatus("Name required", true);
+    return;
+  }
+  if (!stem) {
+    try {
+      stem = (await api(`/api/stem?name=${encodeURIComponent(name)}`)).stem;
+    } catch (e) {
+      setStatus(String(e.message || e), true);
+      return;
+    }
+  }
   try {
     const data = await api("/api/boxes", {
       method: "POST",
-      body: JSON.stringify({ box_name: name.trim(), stem }),
+      body: JSON.stringify({ box_name: name, stem }),
     });
     await refreshBoxes();
     await refreshCatalog();
@@ -409,7 +651,8 @@ async function newCard() {
     );
     state.box = data.box;
     state.card = data.card;
-    markDirty(false);
+    markDirty(true); // new empty card needs a first save
+    setCardMode("edit");
     await refreshBoxes();
     await refreshCatalog();
     renderAll();
@@ -464,16 +707,34 @@ async function deleteCard() {
 
 async function renameBox() {
   if (!state.box) return;
-  const name = prompt("Lore Box Name:", state.box.box_name);
-  if (name === null) return;
-  let stem = state.box.stem;
-  const stemEdit = prompt("Stem (TYPE A / unique in safe_box):", stem);
-  if (stemEdit === null) return;
-  stem = stemEdit.trim() || stem;
+  const dlg = await openDialog({
+    title: "Rename lore box",
+    okLabel: "Rename",
+    fields: [
+      {
+        name: "box_name",
+        label: "Lore box name",
+        value: state.box.box_name || "",
+      },
+      {
+        name: "stem",
+        label: "Stem",
+        value: state.box.stem || "",
+        hint: "Changing stem rewrites codes and the .lore filename.",
+      },
+    ],
+  });
+  if (!dlg.ok) return;
+  const name = (dlg.values.box_name || "").trim();
+  const stem = (dlg.values.stem || "").trim() || state.box.stem;
+  if (!name) {
+    setStatus("Name required", true);
+    return;
+  }
   try {
     const data = await api(`/api/box/${encodeURIComponent(state.box.stem)}`, {
       method: "PUT",
-      body: JSON.stringify({ box_name: name.trim(), stem }),
+      body: JSON.stringify({ box_name: name, stem }),
     });
     state.box = data;
     state.card = null;
@@ -503,7 +764,14 @@ function addRelation() {
   }
   state.card.relates.push({ to, type });
   markDirty(true);
+  hideRelForm();
   renderRelates();
+  // view mode has no Save — persist relation immediately
+  if (state.cardMode === "view") {
+    saveCard().catch(err);
+  } else {
+    setStatus("Relation attached — Save card to keep");
+  }
 }
 
 async function addRelationType() {
@@ -528,20 +796,34 @@ async function addRelationType() {
 
 function bind() {
   $("#btn-new-box").addEventListener("click", () => newBox().catch(err));
+  const emptyNew = $("#btn-new-box-empty");
+  if (emptyNew) emptyNew.addEventListener("click", () => newBox().catch(err));
   $("#btn-new-card").addEventListener("click", () => newCard().catch(err));
   $("#btn-save").addEventListener("click", () => saveCard().catch(err));
   $("#btn-del-box").addEventListener("click", () => deleteBox().catch(err));
   $("#btn-del-card").addEventListener("click", () => deleteCard().catch(err));
   $("#btn-rename").addEventListener("click", () => renameBox().catch(err));
+  $("#btn-rel-open").addEventListener("click", () => showRelForm());
   $("#btn-rel-add").addEventListener("click", addRelation);
+  $("#btn-rel-cancel").addEventListener("click", () => hideRelForm());
   $("#btn-rel-type-add").addEventListener("click", () =>
     addRelationType().catch(err)
   );
   $("#rel-box").addEventListener("change", fillRelateCardSelect);
 
-  for (const id of ["f-headliner", "f-slugline", "f-prime", "f-gravity"]) {
+  $("#btn-edit-card").addEventListener("click", () => {
+    setCardMode("edit");
+    markDirty(false);
+    setStatus("Editing card");
+  });
+  $("#btn-rail-toggle").addEventListener("click", () => toggleRail());
+  const railClose = $("#btn-rail-close");
+  if (railClose) railClose.addEventListener("click", () => setRailCollapsed(true));
+
+  for (const id of ["f-headliner", "f-slugline", "f-prime"]) {
     $(`#${id}`).addEventListener("input", () => markDirty(true));
   }
+  $("#f-gravity").addEventListener("change", () => markDirty(true));
 }
 
 function err(e) {
@@ -550,17 +832,21 @@ function err(e) {
 
 async function boot() {
   bind();
+  // B9-2: mobile starts with safe box collapsed — content board first
+  if (window.matchMedia("(max-width: 720px)").matches) {
+    setRailCollapsed(true);
+  } else {
+    setRailCollapsed(false);
+  }
   try {
     await api("/api/health");
     await refreshRelationTypes();
     await refreshBoxes();
     await refreshCatalog();
-    // start with nothing selected if boxes exist — user picks rail
-    // (unless only one box? keep empty main until click — clearer A2/A3)
     state.box = null;
     state.card = null;
     renderAll();
-    setStatus("loreBOX desk ready · safe_box only");
+    setStatus("DATBOX is ready");
   } catch (e) {
     setStatus(
       "Cannot reach desk server. From box_sys run: python server.py — then open http://127.0.0.1:42929/",
