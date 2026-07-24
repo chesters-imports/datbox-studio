@@ -190,7 +190,7 @@ function clearContextFields() {
   if (name) name.textContent = "—";
   if (stem) stem.textContent = "—";
   const chrome = $("#chrome-meta");
-  if (chrome) chrome.textContent = "DATBOX Studio · select a box in safe_box";
+  if (chrome) chrome.textContent = "DATBOX Studio - no BOX loaded";
 }
 
 function clearEditorFields() {
@@ -280,7 +280,7 @@ function renderMainPane() {
 
   $("#meta-box-name").textContent = state.box.box_name || "—";
   $("#meta-stem").textContent = state.box.stem || "—";
-  $("#chrome-meta").textContent = `${state.box.stem}.lore · ${state.box.box_name}`;
+  $("#chrome-meta").textContent = `DATBOX Loaded [ ${state.box.stem}.lore | ${state.box.box_name} ]`;
 }
 
 function renderBoxList() {

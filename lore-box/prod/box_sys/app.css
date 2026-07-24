@@ -65,12 +65,13 @@ body {
 
 .chrome-meta {
   color: var(--muted);
-  font-size: 12px;
+  font-size: 10px;
   flex: 1;
   min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+  opacity: 0.75;
 }
 
 /* Work: rail | main — rail meets title bar */
@@ -175,7 +176,7 @@ body {
   text-transform: uppercase;
   letter-spacing: 0.05em;
   color: var(--muted);
-  border-bottom: 1px solid var(--line);
+  background: linear-gradient(to top, #ffffff00, #d8e4f0);
   flex-shrink: 0;
 }
 
@@ -323,8 +324,8 @@ body {
   gap: 10px 28px;
   align-items: baseline;
   padding: 10px 14px;
+  background: #bbccdd;
   border-bottom: 1px solid var(--line);
-  background: #f0f3f6;
   flex-shrink: 0;
 }
 
@@ -340,6 +341,10 @@ body {
   text-transform: uppercase;
   letter-spacing: 0.05em;
   color: var(--muted);
+  background: #eef1f4;
+  padding: 4px 6px;
+  border-radius: 5px;
+  box-shadow: 0 1px 0px rgba(40, 50, 60, 0.193);
 }
 
 .meta-v {
@@ -435,16 +440,18 @@ body {
 }
 
 .view-v {
-  font-size: 13px;
+  font-size: 11px;
   line-height: 1.45;
+  padding: 4px 10px;
   color: var(--text);
   white-space: pre-wrap;
   word-break: break-word;
+  font-weight: 500;
 }
 
 .view-v.prime-view {
   min-height: 3em;
-  padding: 8px 0;
+  padding: 4px 10px;
 }
 
 .rel-form {
