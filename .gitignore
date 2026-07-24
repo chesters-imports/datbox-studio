@@ -9,3 +9,7 @@ node_modules/
 *.sqlite
 *.sqlite-shm
 *.sqlite-wal
+
+# operator vault (keep folder, ignore personal mats)
+lore-box/prod/safe_box/**
+!lore-box/prod/safe_box/.gitkeep

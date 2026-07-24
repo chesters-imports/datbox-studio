@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>loreBOX</title>
+    <link rel="stylesheet" href="app.css" />
+  </head>
+  <body>
+    <div id="app">
+      <header class="app-chrome">
+        <span class="chip">loreBOX</span>
+        <span class="chrome-meta" id="chrome-meta">DATBOX Studio · select a box in safe_box</span>
+      </header>
+
+      <div class="work">
+        <!-- SAFE BOX rail: full height under brand bar -->
+        <aside class="region rail" aria-label="Safe box">
+          <div class="region-head"><span>Safe box</span></div>
+          <div class="region-body" id="box-list"></div>
+          <div class="region-foot">
+            <button type="button" class="btn linkish" id="btn-new-box">New box</button>
+            <button type="button" class="btn linkish" id="btn-rename" disabled>Rename box</button>
+            <button type="button" class="btn linkish danger" id="btn-del-box" disabled>Delete box</button>
+          </div>
+        </aside>
+
+        <!-- Context + cards + editor only when a box is loaded -->
+        <div class="main" id="main-pane">
+          <div id="main-empty" class="empty-hint main-empty">
+            Select a lore DATBOX in the safe box rail,<br />
+            or create one with <strong>New box</strong>.
+          </div>
+
+          <div id="main-loaded" class="main-loaded" hidden>
+            <div class="context-strip" aria-label="Loaded box">
+              <label>Box name <input type="text" id="meta-box-name" readonly title="Use Rename box" /></label>
+              <label>Stem <input type="text" id="meta-stem" readonly title="TYPE A · use Rename box" /></label>
+            </div>
+
+            <div class="main-split">
+              <section class="region cards" aria-label="Lore cards">
+                <div class="region-head">
+                  <span>Cards</span>
+                  <button type="button" class="btn" id="btn-new-card">New card</button>
+                </div>
+                <div class="region-body" id="card-list"></div>
+                <div class="region-foot">
+                  <button type="button" class="btn linkish danger" id="btn-del-card" disabled>Delete card</button>
+                </div>
+              </section>
+
+              <section class="region editor-region" aria-label="Editor">
+                <div class="region-head">
+                  <span>Dat card</span>
+                  <button type="button" class="btn" id="btn-save" disabled>Save card</button>
+                </div>
+                <div class="region-body">
+                  <div id="editor-empty" class="empty-hint">
+                    No card selected.<br />
+                    New card mints a LORE-CODE, or pick one from the list.
+                  </div>
+                  <div id="editor" class="editor" hidden>
+                    <div class="field">
+                      <span>Headliner</span>
+                      <input type="text" id="f-headliner" autocomplete="off" />
+                    </div>
+                    <div class="field">
+                      <span>Slugline</span>
+                      <input type="text" id="f-slugline" autocomplete="off" />
+                    </div>
+                    <div class="field prime">
+                      <span>Prime lore</span>
+                      <textarea id="f-prime" spellcheck="true"></textarea>
+                    </div>
+                    <div class="row-2">
+                      <div class="field">
+                        <span>Lore core (auto)</span>
+                        <div class="core-readonly" id="f-core">—</div>
+                      </div>
+                      <div class="field">
+                        <span>Gravity</span>
+                        <select id="f-gravity">
+                          <option value="0">0 · unset</option>
+                          <option value="1">1</option>
+                          <option value="2">2</option>
+                          <option value="3">3</option>
+                          <option value="4">4</option>
+                          <option value="5">5</option>
+                        </select>
+                      </div>
+                    </div>
+                    <div class="field relates">
+                      <span>Relate to</span>
+                      <div class="relate-row">
+                        <select id="rel-box" title="Source box in safe_box"></select>
+                        <select id="rel-card" title="Target lore unit"></select>
+                        <select id="rel-type" title="Relation type"></select>
+                      </div>
+                      <div class="relate-row">
+                        <button type="button" class="btn" id="btn-rel-add">Add relation</button>
+                        <button type="button" class="btn linkish" id="btn-rel-type-add">+ type in box_sets</button>
+                      </div>
+                      <div class="relate-list" id="rel-list"></div>
+                    </div>
+                  </div>
+                </div>
+              </section>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <footer class="status" id="status">starting…</footer>
+    </div>
+    <script src="app.js"></script>
+  </body>
+</html>
