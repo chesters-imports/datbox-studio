@@ -51,11 +51,13 @@ function setCardMode(mode) {
   if (view) view.hidden = state.cardMode !== "view";
   updateCardModeButtons();
   if (state.cardMode === "view") fillCardView();
+  persistSession();
 }
 
 function updateCardModeButtons() {
   const save = $("#btn-save");
   const editBtn = $("#btn-edit-card");
+  const del = $("#btn-del-card");
   const hasCard = !!(state.box && state.card);
   if (save) {
     const showSave = hasCard && state.cardMode === "edit";
@@ -65,31 +67,107 @@ function updateCardModeButtons() {
   if (editBtn) {
     editBtn.hidden = !(hasCard && state.cardMode === "view");
   }
+  // B18: trash sits with Edit in view mode (and available while editing too)
+  if (del) {
+    del.hidden = !hasCard;
+    del.disabled = !hasCard;
+  }
 }
 
 function fillCardView() {
   if (!state.card) return;
-  const g = state.card.gravity ?? 0;
+  const g = Number(state.card.gravity ?? 0);
   $("#v-headliner").textContent = state.card.headliner || "(no headliner)";
   $("#v-slugline").textContent = state.card.slugline || "—";
   $("#v-prime").textContent = state.card.prime_lore || "—";
   $("#v-core").textContent = state.card.lore_core || state.card.lore_code || "—";
-  $("#v-gravity").textContent = g === 0 ? "0 · unset" : String(g);
+  // B16: plain "unset" only when gravity is 0
+  $("#v-gravity").textContent = g === 0 ? "unset" : String(g);
+}
+
+/** Apply rail chrome without touching storage (boot-safe). */
+function applyRailDom() {
+  const app = $("#app");
+  if (app) app.classList.toggle("rail-collapsed", state.railCollapsed);
+  const openTab = $("#btn-rail-open");
+  if (openTab) {
+    openTab.hidden = !state.railCollapsed;
+    openTab.setAttribute(
+      "aria-expanded",
+      state.railCollapsed ? "false" : "true"
+    );
+  }
 }
 
 function setRailCollapsed(collapsed) {
   state.railCollapsed = !!collapsed;
-  const app = $("#app");
-  if (app) app.classList.toggle("rail-collapsed", state.railCollapsed);
-  const toggle = $("#btn-rail-toggle");
-  if (toggle) {
-    toggle.setAttribute("aria-expanded", state.railCollapsed ? "false" : "true");
-    toggle.title = state.railCollapsed ? "Open safe box" : "Collapse safe box";
-  }
+  applyRailDom();
+  persistSession();
 }
 
 function toggleRail() {
   setRailCollapsed(!state.railCollapsed);
+}
+
+/* B15: remember open box/card for tester refresh
+   NOTE: storage is per-origin — use the same host each time
+   (datbox.lorebox.localhost vs 127.0.0.1 are different keys). */
+const SESSION_KEY = "lorebox-desk-session-v1";
+let sessionReady = false; // false until boot finishes restore — avoids wiping on rail init
+
+function persistSession() {
+  if (!sessionReady) return;
+  try {
+    const payload = {
+      stem: state.box ? state.box.stem : null,
+      lore_code: state.card ? state.card.lore_code : null,
+      cardMode: state.cardMode,
+      railCollapsed: state.railCollapsed,
+    };
+    // localStorage survives refresh and is less surprising for testers
+    localStorage.setItem(SESSION_KEY, JSON.stringify(payload));
+    sessionStorage.setItem(SESSION_KEY, JSON.stringify(payload));
+  } catch {
+    /* private mode etc. */
+  }
+}
+
+function readSession() {
+  try {
+    const raw =
+      localStorage.getItem(SESSION_KEY) || sessionStorage.getItem(SESSION_KEY);
+    return raw ? JSON.parse(raw) : null;
+  } catch {
+    return null;
+  }
+}
+
+async function restoreSession() {
+  const s = readSession();
+  if (!s || !s.stem) return false;
+  try {
+    const data = await api(`/api/box/${encodeURIComponent(s.stem)}`);
+    state.box = data;
+    if (s.lore_code) {
+      state.card =
+        (data.cards || []).find((c) => c.lore_code === s.lore_code) || null;
+    } else {
+      state.card = null;
+    }
+    state.dirty = false;
+    if (state.card) {
+      state.cardMode = s.cardMode === "edit" ? "edit" : "view";
+    }
+    if (typeof s.railCollapsed === "boolean") {
+      state.railCollapsed = s.railCollapsed;
+      applyRailDom();
+    }
+    setStatus(`Restored ${data.stem}.lore`);
+    return true;
+  } catch (e) {
+    setStatus("Could not restore last box (missing?)", true);
+    return false;
+  }
 }
 
 /** A2/A3: clear loaded context when nothing is selected */
@@ -173,6 +251,7 @@ async function openBox(stem) {
   markDirty(false);
   clearEditorFields();
   renderAll();
+  persistSession();
   setStatus(`Opened ${data.stem}.lore · ${data.box_name}`);
 }
 
@@ -253,6 +332,7 @@ function renderCardList() {
       setCardMode("view"); // existing cards open as display
       renderCardList();
       renderEditor();
+      persistSession();
     });
     body.appendChild(btn);
   }
@@ -267,8 +347,6 @@ function renderEditor() {
     ed.hidden = true;
     empty.hidden = false;
     clearEditorFields();
-    const del = $("#btn-del-card");
-    if (del) del.disabled = true;
     updateCardModeButtons();
     return;
   }
@@ -282,9 +360,6 @@ function renderEditor() {
   $("#f-gravity").value = String(state.card.gravity ?? 0);
   fillCardView();
   setCardMode(state.cardMode);
-
-  const del = $("#btn-del-card");
-  if (del) del.disabled = false;
 
   hideRelForm();
   renderRelates();
@@ -354,7 +429,7 @@ function renderRelates() {
   const rels = (state.card && state.card.relates) || [];
   if (!rels.length) {
     list.innerHTML =
-      '<div class="empty-hint" style="padding:6px 0">No relations yet.</div>';
+      '<div class="empty-hint" style="padding:6px 0">No connections yet.</div>';
     return;
   }
   for (let i = 0; i < rels.length; i++) {
@@ -428,6 +503,7 @@ async function saveCard() {
   await refreshBoxes();
   await refreshCatalog();
   renderAll();
+  persistSession();
   setStatus(`Saved ${code}`);
 }
 
@@ -814,9 +890,11 @@ function bind() {
   $("#btn-edit-card").addEventListener("click", () => {
     setCardMode("edit");
     markDirty(false);
+    persistSession();
     setStatus("Editing card");
   });
-  $("#btn-rail-toggle").addEventListener("click", () => toggleRail());
+  const railOpen = $("#btn-rail-open");
+  if (railOpen) railOpen.addEventListener("click", () => setRailCollapsed(false));
   const railClose = $("#btn-rail-close");
   if (railClose) railClose.addEventListener("click", () => setRailCollapsed(true));
 
@@ -832,12 +910,17 @@ function err(e) {
 
 async function boot() {
   bind();
-  // B9-2: mobile starts with safe box collapsed — content board first
-  if (window.matchMedia("(max-width: 720px)").matches) {
-    setRailCollapsed(true);
+  sessionReady = false;
+
+  // Prefer last session rail; else mobile collapsed / desktop open
+  const prior = readSession();
+  if (prior && typeof prior.railCollapsed === "boolean") {
+    state.railCollapsed = prior.railCollapsed;
   } else {
-    setRailCollapsed(false);
+    state.railCollapsed = window.matchMedia("(max-width: 720px)").matches;
   }
+  applyRailDom(); // do NOT persist yet — would wipe stem
+
   try {
     await api("/api/health");
     await refreshRelationTypes();
@@ -845,9 +928,13 @@ async function boot() {
     await refreshCatalog();
     state.box = null;
     state.card = null;
+    const restored = await restoreSession();
     renderAll();
-    setStatus("DATBOX is ready");
+    sessionReady = true;
+    persistSession(); // write clean snapshot after restore
+    if (!restored && !state.box) setStatus("DATBOX is ready");
   } catch (e) {
+    sessionReady = true;
     setStatus(
       "Cannot reach desk server. From box_sys run: python server.py — then open http://127.0.0.1:42929/",
       true

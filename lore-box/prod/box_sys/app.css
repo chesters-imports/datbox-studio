@@ -83,27 +83,57 @@ body {
 }
 
 /* B9-2 / B11: collapsed safe box — content board wins */
+.rail-column {
+  display: flex;
+  flex-direction: row;
+  min-width: 0;
+  min-height: 0;
+  background: var(--rail);
+  border-right: 1px solid var(--line);
+}
+
+.rail-column .region.rail {
+  flex: 1;
+  min-width: 0;
+  border-right: none;
+}
+
+/* B14: collapsed — slim column is only the open tab */
 #app.rail-collapsed .work {
-  grid-template-columns: 0 1fr;
+  grid-template-columns: 28px 1fr;
 }
 
 #app.rail-collapsed .region.rail {
-  overflow: hidden;
-  border-right: none;
-  pointer-events: none;
-  opacity: 0;
+  display: none;
 }
 
-#app.rail-collapsed .rail-toggle {
-  background: var(--chip);
-}
-
-.rail-toggle {
+.rail-tab {
+  display: none;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
   flex-shrink: 0;
-  min-width: 2em;
-  padding: 4px 8px;
+  margin: 0;
+  padding: 0;
+  border: none;
+  background: var(--rail);
+  color: var(--btn-text);
+  font: inherit;
   font-size: 14px;
-  line-height: 1;
+  cursor: pointer;
+  align-self: stretch;
+}
+
+.rail-tab:hover {
+  background: #e0e6ec;
+}
+
+#app.rail-collapsed .rail-tab {
+  display: flex;
+}
+
+#app.rail-collapsed .rail-column {
+  border-right: 1px solid var(--line);
 }
 
 .rail-close {
@@ -115,9 +145,11 @@ body {
   .work {
     grid-template-columns: minmax(160px, 42vw) 1fr;
   }
-  /* mobile: default collapsed via JS; expanded overlays-ish as column */
   #app:not(.rail-collapsed) .work {
     grid-template-columns: minmax(160px, 46vw) 1fr;
+  }
+  #app.rail-collapsed .work {
+    grid-template-columns: 28px 1fr;
   }
 }
 
@@ -130,7 +162,6 @@ body {
 
 .region.rail {
   background: var(--rail);
-  border-right: 1px solid var(--line);
   transition: opacity 0.12s ease;
 }
 
@@ -146,6 +177,30 @@ body {
   color: var(--muted);
   border-bottom: 1px solid var(--line);
   flex-shrink: 0;
+}
+
+.head-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.btn-icon {
+  min-width: 2em;
+  padding: 4px 8px;
+  font-size: 14px;
+  line-height: 1;
+}
+
+.btn-icon.danger {
+  color: var(--danger);
+  border-color: #e0b0b0;
+  background: #f8ecec;
+}
+
+.btn-icon.danger:hover:not(:disabled) {
+  background: #f0d8d8;
+  filter: none;
 }
 
 .region-body {
@@ -306,22 +361,35 @@ body {
   color: var(--muted);
 }
 
+/* B17: classic table-ish rows — shared label column */
 .meta-lines {
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 6px;
   padding: 4px 0;
 }
 
 .meta-line {
-  display: flex;
-  flex-wrap: wrap;
+  display: grid;
+  grid-template-columns: 7.5em 1fr;
   align-items: center;
   gap: 10px 14px;
+  min-height: 1.8em;
+}
+
+.meta-line .meta-k {
+  text-align: left;
+}
+
+.meta-line .meta-v,
+.meta-line select {
+  min-width: 0;
+  justify-self: start;
 }
 
 .meta-line.gravity-line select {
-  min-width: 7em;
+  min-width: 7.5em;
+  width: auto;
 }
 
 /* B12: Save card pops in header */
