@@ -2,6 +2,16 @@
 
 const $ = (sel, root = document) => root.querySelector(sel);
 
+function setText(sel, text) {
+  const el = typeof sel === "string" ? $(sel) : sel;
+  if (el) el.textContent = text;
+}
+
+function setVal(sel, value) {
+  const el = typeof sel === "string" ? $(sel) : sel;
+  if (el) el.value = value;
+}
+
 const state = {
   boxes: [],
   catalog: [],
@@ -78,18 +88,18 @@ function fillCardView() {
   if (!state.card) return;
   const g = Number(state.card.gravity ?? 0);
   const c = state.card;
-  $("#v-title").textContent = c.title || "(no title)";
-  $("#v-scene-code").textContent = c.scene_code || "—";
-  $("#v-shot-code").textContent = c.shot_code || "—";
-  $("#v-shotslug").textContent = c.shotslug || "—";
-  $("#v-raw").textContent = c.raw_prose || "—";
-  $("#v-visual").textContent = c.visual || "—";
-  $("#v-action").textContent = c.action || "—";
-  $("#v-dialogue").textContent = c.dialogue || "—";
-  $("#v-transition").textContent = c.transition || "—";
-  $("#v-amusement").textContent = c.amusement || "—";
-  $("#v-tags").textContent = c.tone_tags || "—";
-  $("#v-gravity").textContent = g === 0 ? "unset" : String(g);
+  setText("#v-title", c.title || "(no title)");
+  setText("#v-scene-code", c.scene_code || "—");
+  setText("#v-shot-code", c.shot_code || "—");
+  setText("#v-shotslug", c.shotslug || "—");
+  setText("#v-raw", c.raw_prose || "—");
+  setText("#v-visual", c.visual || "—");
+  setText("#v-action", c.action || "—");
+  setText("#v-dialogue", c.dialogue || "—");
+  setText("#v-transition", c.transition || "—");
+  setText("#v-amusement", c.amusement || "—");
+  setText("#v-tags", c.tone_tags || "—");
+  setText("#v-gravity", g === 0 ? "unset" : String(g));
   const rawWrap = $("#v-raw-wrap");
   if (rawWrap) rawWrap.hidden = !(c.raw_prose && String(c.raw_prose).trim());
 }
@@ -266,14 +276,19 @@ async function openBox(stem) {
   if (state.dirty && state.box) {
     if (!confirm("Discard unsaved card edits?")) return;
   }
-  const data = await api(`/api/box/${encodeURIComponent(stem)}`);
-  state.box = data;
-  state.card = null; // require explicit card pick / new (clearer empty card tooling)
-  markDirty(false);
-  clearEditorFields();
-  renderAll();
-  persistSession();
-  setStatus(`Opened ${data.stem}.shot · ${data.box_name}`);
+  try {
+    const data = await api(`/api/box/${encodeURIComponent(stem)}`);
+    state.box = data;
+    state.card = null; // pick a shot from the list (or +)
+    markDirty(false);
+    clearEditorFields();
+    renderAll();
+    persistSession();
+    setStatus(`Opened ${data.stem}.shot · ${data.box_name}`);
+  } catch (e) {
+    console.error("openBox", stem, e);
+    setStatus(`Could not open box ${stem}: ${e.message || e}`, true);
+  }
 }
 
 /* ---------- render ---------- */
@@ -299,9 +314,12 @@ function renderMainPane() {
     return;
   }
 
-  $("#meta-box-name").textContent = state.box.box_name || "—";
-  $("#meta-stem").textContent = state.box.stem || "—";
-  $("#chrome-meta").textContent = `DATBOX Loaded [ ${state.box.stem}.shot | ${state.box.box_name} ]`;
+  setText("#meta-box-name", state.box.box_name || "—");
+  setText("#meta-stem", state.box.stem || "—");
+  setText(
+    "#chrome-meta",
+    `DATBOX Loaded [ ${state.box.stem}.shot | ${state.box.box_name} ]`
+  );
 }
 
 function renderBoxList() {
@@ -376,19 +394,18 @@ function renderEditor() {
   ed.hidden = false;
 
   const c = state.card;
-  const storeEl = $("#f-shot-code");
-  if (storeEl) storeEl.textContent = c.shot_code || "—";
-  $("#f-scene-code").value = c.scene_code || "";
-  $("#f-title").value = c.title || "";
-  $("#f-raw").value = c.raw_prose || "";
-  $("#f-shotslug").value = c.shotslug || "";
-  $("#f-visual").value = c.visual || "";
-  $("#f-action").value = c.action || "";
-  $("#f-dialogue").value = c.dialogue || "";
-  $("#f-transition").value = c.transition || "";
-  $("#f-amusement").value = c.amusement || "";
-  $("#f-tags").value = c.tone_tags || "";
-  $("#f-gravity").value = String(c.gravity ?? 0);
+  setText("#f-shot-code", c.shot_code || "—");
+  setVal("#f-scene-code", c.scene_code || "");
+  setVal("#f-title", c.title || "");
+  setVal("#f-raw", c.raw_prose || "");
+  setVal("#f-shotslug", c.shotslug || "");
+  setVal("#f-visual", c.visual || "");
+  setVal("#f-action", c.action || "");
+  setVal("#f-dialogue", c.dialogue || "");
+  setVal("#f-transition", c.transition || "");
+  setVal("#f-amusement", c.amusement || "");
+  setVal("#f-tags", c.tone_tags || "");
+  setVal("#f-gravity", String(c.gravity ?? 0));
   fillCardView();
   setCardMode(state.cardMode);
 
@@ -504,17 +521,21 @@ function escapeHtml(s) {
 function readEditorIntoCard() {
   if (!state.card) return;
   // shot_code is bag pot — never taken from the form
-  state.card.scene_code = ($("#f-scene-code").value || "").trim();
-  state.card.title = $("#f-title").value;
-  state.card.raw_prose = $("#f-raw").value;
-  state.card.shotslug = $("#f-shotslug").value;
-  state.card.visual = $("#f-visual").value;
-  state.card.action = $("#f-action").value;
-  state.card.dialogue = $("#f-dialogue").value;
-  state.card.transition = $("#f-transition").value;
-  state.card.amusement = $("#f-amusement").value;
-  state.card.tone_tags = $("#f-tags").value;
-  state.card.gravity = parseInt($("#f-gravity").value, 10) || 0;
+  const v = (id) => {
+    const el = $(id);
+    return el ? el.value : "";
+  };
+  state.card.scene_code = v("#f-scene-code").trim();
+  state.card.title = v("#f-title");
+  state.card.raw_prose = v("#f-raw");
+  state.card.shotslug = v("#f-shotslug");
+  state.card.visual = v("#f-visual");
+  state.card.action = v("#f-action");
+  state.card.dialogue = v("#f-dialogue");
+  state.card.transition = v("#f-transition");
+  state.card.amusement = v("#f-amusement");
+  state.card.tone_tags = v("#f-tags");
+  state.card.gravity = parseInt(v("#f-gravity"), 10) || 0;
 }
 
 function cardPayload() {
@@ -1001,18 +1022,34 @@ async function boot() {
     await refreshCatalog();
     state.box = null;
     state.card = null;
-    const restored = await restoreSession();
+    let restored = false;
+    try {
+      restored = await restoreSession();
+    } catch (re) {
+      console.error("restoreSession", re);
+      setStatus(`Desk up · could not restore last box (${re.message || re})`, true);
+    }
     renderAll();
     sessionReady = true;
-    persistSession(); // write clean snapshot after restore
-    if (!restored && !state.box) setStatus("shotBOX is ready · watchers · i see you");
+    persistSession();
+    if (!restored && !state.box) {
+      setStatus("shotBOX is ready · watchers · i see you");
+    } else if (state.box && !String($("#status")?.textContent || "").includes("could not")) {
+      setStatus(`Opened ${state.box.stem}.shot · ${state.box.box_name}`);
+    }
   } catch (e) {
     sessionReady = true;
     console.error("shotBOX boot", e);
-    setStatus(
-      "Cannot reach desk server on :43001. Close other shotBOX hosts, check box_sys/desk-server.log, or run: python server.py",
-      true
-    );
+    const msg = String(e.message || e);
+    // Only claim "server down" when health never answered
+    if (/fetch|NetworkError|Failed to fetch|desk not reachable/i.test(msg)) {
+      setStatus(
+        "Cannot reach desk server on :43001. Check box_sys/desk-server.log or run: python server.py",
+        true
+      );
+    } else {
+      setStatus(`Desk error: ${msg}`, true);
+    }
     renderAll();
   }
 }
