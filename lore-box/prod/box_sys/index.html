@@ -8,9 +8,15 @@
   </head>
   <body>
     <div id="app">
-      <!-- data-deck-chrome: The Deck Host fuses window controls into this bar -->
+      <!--
+        Deck Host integration (no second caption):
+        data-deck-chrome = this bar is the only top chrome
+        data-deck-menu   = chip is the host menu (not an injected gem)
+        data-deck-drag   = drag window
+        data-deck-window-controls = host injects min/max/close only
+      -->
       <header class="app-chrome" data-deck-chrome>
-        <span class="chip">lore<strong>BOX</strong></span>
+        <span class="chip" data-deck-menu title="Menu">lore<strong>BOX</strong></span>
         <span class="chrome-meta" id="chrome-meta" data-deck-drag
           >DATBOX Studio - no BOX loaded</span
         >
