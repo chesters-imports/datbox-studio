@@ -13,3 +13,9 @@ node_modules/
 # operator vault (keep folder, ignore personal mats)
 lore-box/prod/safe_box/**
 !lore-box/prod/safe_box/.gitkeep
+
+# ROM runtime
+**/box_sys/desk-server.log
+**/safe_box/**
+!**/safe_box/.gitkeep
+
