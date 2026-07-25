@@ -282,6 +282,13 @@ class Handler(SimpleHTTPRequestHandler):
                 "gravity": int(body.get("gravity") or 0),
                 "relates": body.get("relates") if isinstance(body.get("relates"), list) else [],
             }
+            # Time Machina nick — write on mint when client already peeked the cord
+            tps_chip = str(body.get("tps_chip") or "").strip()
+            tps_export = str(body.get("tps_export") or "").strip()
+            if tps_chip:
+                card["tps_chip"] = tps_chip
+            if tps_export:
+                card["tps_export"] = tps_export
             data.setdefault("cards", []).append(card)
             data["next_seq"] = seq + 1
             save_json(p, data)
@@ -318,6 +325,16 @@ class Handler(SimpleHTTPRequestHandler):
                     found["headliner"] = str(body.get("headliner") or "")
                 if "slugline" in body:
                     found["slugline"] = str(body.get("slugline") or "")
+                # TPS nick: only SET when non-empty — never wipe on ""
+                tps_chip = str(body.get("tps_chip") or "").strip()
+                tps_export = str(body.get("tps_export") or "").strip()
+                if tps_chip:
+                    found["tps_chip"] = tps_chip
+                if tps_export:
+                    found["tps_export"] = tps_export
+                if body.get("tps_clear"):
+                    found.pop("tps_chip", None)
+                    found.pop("tps_export", None)
                 if "prime_lore" in body:
                     found["prime_lore"] = str(body.get("prime_lore") or "")
                 if "gravity" in body:

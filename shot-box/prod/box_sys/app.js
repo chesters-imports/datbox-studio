@@ -84,6 +84,31 @@ function updateCardModeButtons() {
   }
 }
 
+function fillTpsNick() {
+  const chip = (state.card && state.card.tps_chip) || "";
+  const exp = (state.card && state.card.tps_export) || "";
+  const title = chip
+    ? `Time Machina · ${chip}${exp ? " · " + exp : ""}`
+    : "";
+  for (const [lineId, valId] of [
+    ["f-tps-line", "f-tps"],
+    ["v-tps-line", "v-tps"],
+  ]) {
+    const line = document.getElementById(lineId);
+    const val = document.getElementById(valId);
+    if (!line || !val) continue;
+    if (chip) {
+      line.hidden = false;
+      val.textContent = chip;
+      val.title = title;
+    } else {
+      line.hidden = true;
+      val.textContent = "—";
+      val.title = "";
+    }
+  }
+}
+
 function fillCardView() {
   if (!state.card) return;
   const g = Number(state.card.gravity ?? 0);
@@ -102,6 +127,7 @@ function fillCardView() {
   setText("#v-gravity", g === 0 ? "unset" : String(g));
   const rawWrap = $("#v-raw-wrap");
   if (rawWrap) rawWrap.hidden = !(c.raw_prose && String(c.raw_prose).trim());
+  fillTpsNick();
 }
 
 /** Apply rail chrome without touching storage (boot-safe). */
@@ -406,6 +432,7 @@ function renderEditor() {
   setVal("#f-amusement", c.amusement || "");
   setVal("#f-tags", c.tone_tags || "");
   setVal("#f-gravity", String(c.gravity ?? 0));
+  fillTpsNick();
   fillCardView();
   setCardMode(state.cardMode);
 
@@ -538,9 +565,46 @@ function readEditorIntoCard() {
   state.card.gravity = parseInt(v("#f-gravity"), 10) || 0;
 }
 
+/** Nick from state or painted TPS line (form can show nick while state flaked). */
+function currentTpsNick() {
+  const c = state.card || {};
+  let chip = (c.tps_chip || "").trim();
+  let exp = (c.tps_export || "").trim();
+  const el = document.getElementById("f-tps");
+  const line = document.getElementById("f-tps-line");
+  if ((!chip || chip === "—") && el && line && !line.hidden) {
+    const t = (el.textContent || "").trim();
+    if (t && t !== "—") chip = t;
+  }
+  const elV = document.getElementById("v-tps");
+  if ((!chip || chip === "—") && elV) {
+    const t = (elV.textContent || "").trim();
+    if (t && t !== "—") chip = t;
+  }
+  return { chip, exp };
+}
+
+async function stampCardTps(stem, shotCode, chip, exp) {
+  if (!chip) return null;
+  // Body-only route — avoids .shot in the URL (was 404ing on path form)
+  return api(`/api/tps`, {
+    method: "POST",
+    body: JSON.stringify({
+      stem,
+      code: shotCode,
+      shot_code: shotCode,
+      tps_chip: chip,
+      tps_export: exp || "",
+      chip_id: chip,
+      export_id: exp || "",
+    }),
+  });
+}
+
 function cardPayload() {
   const c = state.card;
-  return {
+  const nick = currentTpsNick();
+  const payload = {
     scene_code: c.scene_code || "",
     title: c.title,
     raw_prose: c.raw_prose,
@@ -554,11 +618,20 @@ function cardPayload() {
     gravity: c.gravity,
     relates: c.relates || [],
   };
+  if (nick.chip) payload.tps_chip = nick.chip;
+  if (nick.exp) payload.tps_export = nick.exp;
+  return payload;
 }
 
 async function saveCard() {
   if (!state.box || !state.card) return;
   readEditorIntoCard();
+  const nick = currentTpsNick();
+  // Keep nick on state through the save round-trip
+  if (nick.chip) {
+    state.card.tps_chip = nick.chip;
+    if (nick.exp) state.card.tps_export = nick.exp;
+  }
   const code = state.card.shot_code;
   const data = await api(
     `/api/box/${encodeURIComponent(state.box.stem)}/card/${encodeURIComponent(code)}`,
@@ -568,14 +641,40 @@ async function saveCard() {
     }
   );
   state.box = data.box;
-  state.card = data.card;
+  state.card = data.card || state.card;
+  // Force nick onto disk after content save (PUT alone was dropping it)
+  if (nick.chip) {
+    try {
+      const stamped = await stampCardTps(
+        state.box.stem,
+        code,
+        nick.chip,
+        nick.exp || state.card.tps_export || ""
+      );
+      if (stamped && stamped.card) {
+        state.box = stamped.box || state.box;
+        state.card = { ...state.card, ...stamped.card };
+      }
+    } catch (e) {
+      setStatus(`Saved body · nick stamp failed: ${e.message || e}`, true);
+      markDirty(true);
+      fillTpsNick();
+      renderEditor();
+      return;
+    }
+  }
+  // Preserve nick if server body still omitted it
+  if (nick.chip && !state.card.tps_chip) state.card.tps_chip = nick.chip;
+  if (nick.exp && !state.card.tps_export) state.card.tps_export = nick.exp;
   markDirty(false);
   setCardMode("view");
   await refreshBoxes();
   await refreshCatalog();
   renderAll();
   persistSession();
-  setStatus(`Saved ${code}`);
+  setStatus(
+    nick.chip ? `Saved ${code} · TPS ${nick.chip}` : `Saved ${code}`
+  );
 }
 
 /** B4: drag dialog by chrome */
@@ -780,25 +879,222 @@ async function newBox() {
   }
 }
 
+/** Time Machina cord — same manners as loreBOX. Soft-fail if offline. */
+const MACHINA_CORD =
+  (window.MACHINA_CORD_URL || "http://127.0.0.1:43111").replace(/\/$/, "");
+
+async function peekMachinaNow() {
+  try {
+    const nowRes = await fetch(`${MACHINA_CORD}/api/cord/now`, {
+      method: "GET",
+      headers: { Accept: "application/json" },
+    });
+    if (!nowRes.ok) return { ok: false, reason: "machina_http" };
+    const now = await nowRes.json();
+    if (!now.pocket_on) return { ok: false, reason: "pocket_off" };
+    if (!now.current || !now.current.chip_id) {
+      return { ok: false, reason: "no_chip" };
+    }
+    return {
+      ok: true,
+      chip_id: now.current.chip_id,
+      export_id: now.export_id || "",
+    };
+  } catch {
+    return { ok: false, reason: "offline" };
+  }
+}
+
+async function whisperMatToMachina(mat, stem, peeked) {
+  try {
+    let chip_id = peeked && peeked.chip_id;
+    let export_id = peeked && peeked.export_id;
+    if (!chip_id) {
+      const peek = await peekMachinaNow();
+      if (!peek.ok) return peek;
+      chip_id = peek.chip_id;
+      export_id = peek.export_id;
+    }
+    const post = await fetch(`${MACHINA_CORD}/api/cord/mat`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Accept: "application/json",
+      },
+      body: JSON.stringify({
+        mat,
+        stem: stem || "",
+        unit_code: mat,
+        rom: "shotBOX",
+      }),
+    });
+    const body = await post.json().catch(() => ({}));
+    if (!post.ok || body.ok === false) {
+      return {
+        ok: false,
+        reason: (body && body.error) || "mat_refused",
+        chip_id,
+        export_id,
+      };
+    }
+    return { ok: true, chip_id, export_id: export_id || "" };
+  } catch {
+    return { ok: false, reason: "offline" };
+  }
+}
+
+async function unwhisperMatFromMachina(card) {
+  if (!card || !card.shot_code) return { ok: false, reason: "no_card" };
+  try {
+    const res = await fetch(`${MACHINA_CORD}/api/cord/mat/remove`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Accept: "application/json",
+      },
+      body: JSON.stringify({
+        mat: card.shot_code,
+        unit_code: card.shot_code,
+        chip_id: card.tps_chip || "",
+        export_id: card.tps_export || "",
+        rom: "shotBOX",
+      }),
+    });
+    const body = await res.json().catch(() => ({}));
+    if (!res.ok || body.ok === false) {
+      return { ok: false, reason: (body && body.error) || "remove_failed" };
+    }
+    return { ok: true, count: body.count || 0 };
+  } catch {
+    return { ok: false, reason: "offline" };
+  }
+}
+
 async function newCard() {
   if (!state.box) return;
   if (state.dirty && !confirm("Discard unsaved edits?")) return;
   try {
+    // Peek first → nick lands on the card in the same create write as loreBOX.
+    const peek = await peekMachinaNow();
+    const mintBody = { title: "", gravity: 0 };
+    if (peek.ok) {
+      mintBody.tps_chip = peek.chip_id;
+      mintBody.tps_export = peek.export_id || "";
+    }
+
     const data = await api(
       `/api/box/${encodeURIComponent(state.box.stem)}/card`,
       {
         method: "POST",
-        body: JSON.stringify({ title: "", gravity: 0 }),
+        body: JSON.stringify(mintBody),
       }
     );
     state.box = data.box;
     state.card = data.card;
+    // Force nick onto client state even if server response lagged
+    if (peek.ok && state.card) {
+      state.card.tps_chip = peek.chip_id;
+      state.card.tps_export = peek.export_id || "";
+      if (state.box.cards) {
+        const row = state.box.cards.find(
+          (c) => c.shot_code === data.card.shot_code
+        );
+        if (row) {
+          row.tps_chip = peek.chip_id;
+          row.tps_export = peek.export_id || "";
+        }
+      }
+    }
     markDirty(true);
     setCardMode("edit");
     await refreshBoxes();
     await refreshCatalog();
     renderAll();
-    setStatus(`Shot ${data.card.shot_code}`);
+    fillTpsNick();
+
+    if (peek.ok) {
+      const w = await whisperMatToMachina(
+        data.card.shot_code,
+        state.box.stem,
+        peek
+      );
+      let stampedOk = false;
+      let stampPath = "";
+      try {
+        const stamped = await stampCardTps(
+          state.box.stem,
+          data.card.shot_code,
+          peek.chip_id,
+          peek.export_id || ""
+        );
+        stampedOk = !!(stamped && (stamped.tps_chip || (stamped.card && stamped.card.tps_chip)));
+        stampPath = (stamped && stamped.path) || "";
+        if (stamped && stamped.card) {
+          state.card = {
+            ...state.card,
+            ...stamped.card,
+            tps_chip: stamped.tps_chip || stamped.card.tps_chip || peek.chip_id,
+            tps_export:
+              stamped.tps_export ||
+              stamped.card.tps_export ||
+              peek.export_id ||
+              "",
+          };
+          state.box = stamped.box || state.box;
+        }
+        // Verify with a fresh box load from disk
+        const verify = await api(
+          `/api/box/${encodeURIComponent(state.box.stem)}`
+        );
+        const vCard = (verify.cards || []).find(
+          (c) => c.shot_code === data.card.shot_code
+        );
+        if (vCard && vCard.tps_chip) {
+          stampedOk = true;
+          state.card = { ...state.card, ...vCard };
+          state.box = verify;
+        } else if (stampedOk && stamped && stamped.tps_chip) {
+          // stamp said ok; trust it even if list race
+          stampedOk = true;
+        } else {
+          stampedOk = false;
+        }
+      } catch (stampErr) {
+        setStatus(
+          `Shot ${data.card.shot_code} · nick stamp failed: ${stampErr.message || stampErr}`,
+          true
+        );
+      }
+      if (state.card) {
+        state.card.tps_chip = state.card.tps_chip || peek.chip_id;
+        state.card.tps_export = state.card.tps_export || peek.export_id || "";
+      }
+      fillTpsNick();
+      renderEditor();
+      if (w.ok && stampedOk) {
+        setStatus(
+          `Shot ${data.card.shot_code} · bound ${peek.chip_id}` +
+            (stampPath ? ` · disk ok` : "")
+        );
+      } else if (w.ok && !stampedOk) {
+        setStatus(
+          `Shot ${data.card.shot_code} · book ok, FILE missing nick — kill & restart shotBOX (not just refresh)`,
+          true
+        );
+      } else {
+        setStatus(
+          `Shot ${data.card.shot_code} · chip ${peek.chip_id} (book: ${w.reason || "fail"})`
+        );
+      }
+    } else if (peek.reason === "offline" || peek.reason === "machina_http") {
+      setStatus(`Shot ${data.card.shot_code} · Machina offline`);
+    } else if (peek.reason === "pocket_off") {
+      setStatus(`Shot ${data.card.shot_code} · pocket off (unclocked)`);
+    } else if (peek.reason === "no_chip") {
+      setStatus(`Shot ${data.card.shot_code} · no current chip`);
+    } else {
+      setStatus(`Shot ${data.card.shot_code}`);
+    }
     $("#f-title").focus();
   } catch (e) {
     setStatus(String(e.message || e), true);
@@ -829,7 +1125,9 @@ async function deleteBox() {
 async function deleteCard() {
   if (!state.box || !state.card) return;
   if (!confirm(`Hard delete ${state.card.shot_code}?`)) return;
+  const doomed = { ...state.card };
   try {
+    const u = await unwhisperMatFromMachina(doomed);
     const data = await api(
       `/api/box/${encodeURIComponent(state.box.stem)}/card/${encodeURIComponent(state.card.shot_code)}`,
       { method: "DELETE" }
@@ -841,7 +1139,13 @@ async function deleteCard() {
     await refreshBoxes();
     await refreshCatalog();
     renderAll();
-    setStatus("Shot deleted");
+    if (u.ok && u.count > 0) {
+      setStatus(`Shot deleted · unbound ${u.count} mat row(s) from Machina`);
+    } else if (u.reason === "offline") {
+      setStatus("Shot deleted · Machina offline (book may still list mat)");
+    } else {
+      setStatus("Shot deleted");
+    }
   } catch (e) {
     setStatus(String(e.message || e), true);
   }

@@ -74,6 +74,36 @@ function updateCardModeButtons() {
   }
 }
 
+function fillTpsNick() {
+  const chip = (state.card && state.card.tps_chip) || "";
+  const exp = (state.card && state.card.tps_export) || "";
+  const label = chip
+    ? exp && exp !== chip
+      ? `${chip}`
+      : chip
+    : "";
+  const title = chip
+    ? `Time Machina · ${chip}${exp ? " · " + exp : ""}`
+    : "";
+  for (const [lineId, valId] of [
+    ["f-tps-line", "f-tps"],
+    ["v-tps-line", "v-tps"],
+  ]) {
+    const line = document.getElementById(lineId);
+    const val = document.getElementById(valId);
+    if (!line || !val) continue;
+    if (label) {
+      line.hidden = false;
+      val.textContent = label;
+      val.title = title;
+    } else {
+      line.hidden = true;
+      val.textContent = "—";
+      val.title = "";
+    }
+  }
+}
+
 function fillCardView() {
   if (!state.card) return;
   const g = Number(state.card.gravity ?? 0);
@@ -83,6 +113,7 @@ function fillCardView() {
   $("#v-core").textContent = state.card.lore_core || state.card.lore_code || "—";
   // B16: plain "unset" only when gravity is 0
   $("#v-gravity").textContent = g === 0 ? "unset" : String(g);
+  fillTpsNick();
 }
 
 /** Apply rail chrome without touching storage (boot-safe). */
@@ -358,6 +389,7 @@ function renderEditor() {
   $("#f-prime").value = state.card.prime_lore || "";
   $("#f-core").textContent = state.card.lore_core || state.card.lore_code || "—";
   $("#f-gravity").value = String(state.card.gravity ?? 0);
+  fillTpsNick();
   fillCardView();
   setCardMode(state.cardMode);
 
@@ -493,11 +525,19 @@ async function saveCard() {
         prime_lore: state.card.prime_lore,
         gravity: state.card.gravity,
         relates: state.card.relates || [],
+        // only re-assert nick when present (empty string used to erase it)
+        ...(state.card.tps_chip ? { tps_chip: state.card.tps_chip } : {}),
+        ...(state.card.tps_export ? { tps_export: state.card.tps_export } : {}),
       }),
     }
   );
   state.box = data.box;
+  // Preserve nick if server response omitted it
+  const keptChip = state.card.tps_chip;
+  const keptExp = state.card.tps_export;
   state.card = data.card;
+  if (keptChip && !state.card.tps_chip) state.card.tps_chip = keptChip;
+  if (keptExp && !state.card.tps_export) state.card.tps_export = keptExp;
   markDirty(false);
   setCardMode("view");
   await refreshBoxes();
@@ -709,20 +749,128 @@ async function newBox() {
   }
 }
 
+/** Time Machina cord — peek + mat whisper. Offline = silent skip. */
+const MACHINA_CORD =
+  (window.MACHINA_CORD_URL || "http://127.0.0.1:43111").replace(/\/$/, "");
+
+/** Peek current chip before mint so tps_chip can land on the card in one write. */
+async function peekMachinaNow() {
+  try {
+    const nowRes = await fetch(`${MACHINA_CORD}/api/cord/now`, {
+      method: "GET",
+      headers: { Accept: "application/json" },
+    });
+    if (!nowRes.ok) return { ok: false, reason: "machina_http" };
+    const now = await nowRes.json();
+    if (!now.pocket_on) return { ok: false, reason: "pocket_off" };
+    if (!now.current || !now.current.chip_id) {
+      return { ok: false, reason: "no_chip" };
+    }
+    return {
+      ok: true,
+      chip_id: now.current.chip_id,
+      export_id: now.export_id || "",
+      now,
+    };
+  } catch {
+    return { ok: false, reason: "offline" };
+  }
+}
+
+async function whisperMatToMachina(mat, stem, peeked) {
+  try {
+    let chip_id = peeked && peeked.chip_id;
+    let export_id = peeked && peeked.export_id;
+    if (!chip_id) {
+      const peek = await peekMachinaNow();
+      if (!peek.ok) return peek;
+      chip_id = peek.chip_id;
+      export_id = peek.export_id;
+    }
+    const post = await fetch(`${MACHINA_CORD}/api/cord/mat`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Accept: "application/json",
+      },
+      body: JSON.stringify({
+        mat,
+        stem: stem || "",
+        unit_code: mat,
+        rom: "loreBOX",
+      }),
+    });
+    const body = await post.json().catch(() => ({}));
+    if (!post.ok || body.ok === false) {
+      return {
+        ok: false,
+        reason: (body && body.error) || "mat_refused",
+        chip_id,
+        export_id,
+      };
+    }
+    return {
+      ok: true,
+      chip_id,
+      export_id: export_id || "",
+      mats: body.entry && body.entry.mats,
+    };
+  } catch {
+    return { ok: false, reason: "offline" };
+  }
+}
+
+/** Unbind mat from history book when a card is hard-deleted. Soft-fail if offline. */
+async function unwhisperMatFromMachina(card) {
+  if (!card || !card.lore_code) return { ok: false, reason: "no_card" };
+  try {
+    const res = await fetch(`${MACHINA_CORD}/api/cord/mat/remove`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Accept: "application/json",
+      },
+      body: JSON.stringify({
+        mat: card.lore_code,
+        unit_code: card.lore_code,
+        chip_id: card.tps_chip || "",
+        export_id: card.tps_export || "",
+        rom: "loreBOX",
+      }),
+    });
+    const body = await res.json().catch(() => ({}));
+    if (!res.ok || body.ok === false) {
+      return { ok: false, reason: (body && body.error) || "remove_failed" };
+    }
+    return { ok: true, count: body.count || 0, removed: body.removed || [] };
+  } catch {
+    return { ok: false, reason: "offline" };
+  }
+}
+
 async function newCard() {
   if (!state.box) return;
   if (state.dirty && !confirm("Discard unsaved edits?")) return;
   try {
+    // 1) Peek Machina first so chip nick ships in the same create write as the card.
+    const peek = await peekMachinaNow();
+    const mintBody = {
+      headliner: "",
+      slugline: "",
+      prime_lore: "",
+      gravity: 0,
+    };
+    if (peek.ok) {
+      mintBody.tps_chip = peek.chip_id;
+      mintBody.tps_export = peek.export_id || "";
+    }
+
+    // 2) Create card (tps fields already on disk if peek ok).
     const data = await api(
       `/api/box/${encodeURIComponent(state.box.stem)}/card`,
       {
         method: "POST",
-        body: JSON.stringify({
-          headliner: "",
-          slugline: "",
-          prime_lore: "",
-          gravity: 0,
-        }),
+        body: JSON.stringify(mintBody),
       }
     );
     state.box = data.box;
@@ -732,7 +880,48 @@ async function newCard() {
     await refreshBoxes();
     await refreshCatalog();
     renderAll();
-    setStatus(`Minted ${data.card.lore_code}`);
+    fillTpsNick();
+
+    // 3) Register mat on the book (uses current Machina cursor — same peek when possible).
+    if (peek.ok) {
+      const w = await whisperMatToMachina(
+        data.card.lore_code,
+        state.box.stem,
+        peek
+      );
+      // Re-assert nick on card from peek (create already wrote it; keep UI + state tight)
+      if (state.card) {
+        state.card.tps_chip = peek.chip_id;
+        state.card.tps_export = peek.export_id || "";
+      }
+      // Also patch box in-memory cards so list/catalog don't drop nick
+      if (state.box && state.box.cards) {
+        const row = state.box.cards.find(
+          (c) => c.lore_code === data.card.lore_code
+        );
+        if (row) {
+          row.tps_chip = peek.chip_id;
+          row.tps_export = peek.export_id || "";
+        }
+      }
+      fillTpsNick();
+      renderEditor();
+      if (w.ok) {
+        setStatus(`Minted ${data.card.lore_code} · bound ${peek.chip_id}`);
+      } else {
+        setStatus(
+          `Minted ${data.card.lore_code} · chip ${peek.chip_id} (book whisper: ${w.reason || "fail"})`
+        );
+      }
+    } else if (peek.reason === "offline" || peek.reason === "machina_http") {
+      setStatus(`Minted ${data.card.lore_code} · Machina offline`);
+    } else if (peek.reason === "pocket_off") {
+      setStatus(`Minted ${data.card.lore_code} · pocket off (unclocked)`);
+    } else if (peek.reason === "no_chip") {
+      setStatus(`Minted ${data.card.lore_code} · no current chip`);
+    } else {
+      setStatus(`Minted ${data.card.lore_code}`);
+    }
     $("#f-headliner").focus();
   } catch (e) {
     setStatus(String(e.message || e), true);
@@ -763,7 +952,10 @@ async function deleteBox() {
 async function deleteCard() {
   if (!state.box || !state.card) return;
   if (!confirm(`Hard delete ${state.card.lore_code}?`)) return;
+  const doomed = { ...state.card };
   try {
+    // Unbind from Time Machina book first (uses tps_chip / lore_code)
+    const u = await unwhisperMatFromMachina(doomed);
     const data = await api(
       `/api/box/${encodeURIComponent(state.box.stem)}/card/${encodeURIComponent(state.card.lore_code)}`,
       { method: "DELETE" }
@@ -775,7 +967,13 @@ async function deleteCard() {
     await refreshBoxes();
     await refreshCatalog();
     renderAll();
-    setStatus("Card deleted");
+    if (u.ok && u.count > 0) {
+      setStatus(`Card deleted · unbound ${u.count} mat row(s) from Machina`);
+    } else if (u.reason === "offline") {
+      setStatus("Card deleted · Machina offline (book may still list mat)");
+    } else {
+      setStatus("Card deleted");
+    }
   } catch (e) {
     setStatus(String(e.message || e), true);
   }

@@ -12,7 +12,32 @@
   --danger: #b54a4a;
   --focus: #5a8ab0;
   --rail: #eef1f4;
+  --chrome: #e8edf2;
+  --surface: #ffffff;
+  --surface-2: #eef1f4;
+  --surface-3: #e0e6ec;
   --font: "Inter", "Helvetica Neue", Helvetica, Arial, sans-serif;
+  color-scheme: light;
+}
+
+/* Dark — same cool blue-gray family, night desk */
+html[data-theme="dark"] {
+  --bg: #0e1014;
+  --panel: #161a20;
+  --text: #d8dee8;
+  --muted: #8a96a6;
+  --line: #2c343e;
+  --chip: #2a323c;
+  --btn: #2c3540;
+  --btn-text: #e4eaf2;
+  --danger: #d07878;
+  --focus: #7aafd0;
+  --rail: #1c222a;
+  --chrome: #1a2028;
+  --surface: #1e252e;
+  --surface-2: #222a34;
+  --surface-3: #2a3340;
+  color-scheme: dark;
 }
 
 * {
@@ -45,7 +70,7 @@ body {
   padding: 8px 0 8px 12px;
   border-bottom: 1px solid var(--line);
   flex-shrink: 0;
-  background: #e8edf2;
+  background: var(--chrome);
 }
 
 /* loreBOX design stays; host only fills .deck-win when present */
@@ -380,6 +405,11 @@ body {
   font-size: 13px;
   font-weight: 600;
   color: var(--text);
+}
+
+.meta-v.tps-chip {
+  color: var(--accent, #6bc4e8);
+  font-weight: 600;
 }
 
 .meta-v.mono,
@@ -785,4 +815,120 @@ button.btn.linkish.danger {
   padding: 10px 14px 12px;
   border-top: 1px solid var(--line);
   background: #eef1f4;
+}
+
+/*
+ * Dark mode = same layout as light, only hardcoded light paints swapped.
+ * Do not invent new chrome (no inset bars, no soft redesign).
+ * Light values → dark twins:
+ *   region-head grad #d8e4f0 → #2a3544
+ *   context-strip #bbccdd → #3a4a5c
+ *   dock #e0e6ec → #2a3340 · foot #e8ecf0 → #1a2028
+ *   list hover #e4eaf0 → #2a3340 · active #d8e4f0 → #2c3a48
+ *   status #e8edf2 → #1a2028
+ */
+html[data-theme="dark"] .app-chrome,
+html[data-theme="dark"] .dlg-chrome {
+  background: var(--chrome);
+}
+html[data-theme="dark"] .region-head {
+  background: linear-gradient(to top, transparent, #2a3544);
+}
+html[data-theme="dark"] .context-strip {
+  background: #3a4a5c;
+}
+html[data-theme="dark"] .meta-k {
+  background: #2a3340;
+}
+html[data-theme="dark"] .region.rail,
+html[data-theme="dark"] .rail-column,
+html[data-theme="dark"] .rail-tab {
+  background: var(--rail);
+}
+html[data-theme="dark"] .rail-tab:hover {
+  background: #2a3340;
+}
+html[data-theme="dark"] .main {
+  background: #1a1e24;
+}
+html[data-theme="dark"] .main-empty,
+html[data-theme="dark"] .dlg {
+  background: var(--bg);
+}
+html[data-theme="dark"] input,
+html[data-theme="dark"] textarea,
+html[data-theme="dark"] select {
+  background: var(--surface);
+  color: var(--text);
+  border-color: var(--line);
+}
+html[data-theme="dark"] .region-foot {
+  background: #1a2028;
+}
+html[data-theme="dark"] .region-foot.dock .dock-btn {
+  background: #2a3340;
+  color: var(--btn-text);
+}
+html[data-theme="dark"] .region-foot.dock .dock-btn:hover:not(:disabled) {
+  background: #323c4a;
+}
+html[data-theme="dark"] .region-foot.dock .dock-btn.danger {
+  color: var(--danger);
+  background: #3a282c;
+}
+html[data-theme="dark"] .region-foot.dock .dock-btn.danger:hover:not(:disabled) {
+  background: #4a3034;
+}
+html[data-theme="dark"] .btn-icon.danger {
+  border-color: #5a3840;
+  background: #3a282c;
+}
+html[data-theme="dark"] .btn-icon.danger:hover:not(:disabled) {
+  background: #4a3034;
+}
+html[data-theme="dark"] .list-item:hover {
+  background: #2a3340;
+}
+html[data-theme="dark"] .list-item.active {
+  background: #2c3a48;
+  border-color: var(--line);
+}
+html[data-theme="dark"] .relate-chip {
+  background: #2a3340;
+}
+html[data-theme="dark"] .dlg-actions {
+  background: #1a2028;
+}
+html[data-theme="dark"] .status {
+  background: #1a2028;
+}
+html[data-theme="dark"] .btn-save-pop {
+  background: #2a4050;
+  border-color: #3a5060;
+  color: var(--text);
+}
+html[data-theme="dark"] .btn-save-pop:hover:not(:disabled) {
+  background: #324858;
+}
+html[data-theme="dark"] .cta-new {
+  background: #2a4050;
+  border-color: #3a5060;
+  color: var(--text);
+}
+html[data-theme="dark"] #deck-host-menu {
+  background: #1e252e !important;
+  border-color: #2c343e !important;
+  color: #d8dee8 !important;
+}
+html[data-theme="dark"] #deck-host-menu button {
+  color: #d8dee8 !important;
+}
+html[data-theme="dark"] #deck-host-menu button:hover {
+  background: rgba(122, 175, 208, 0.15) !important;
+}
+html[data-theme="dark"] #deck-host-menu .dh-menu-sep {
+  background: #2c343e !important;
+}
+html[data-theme="dark"] #deck-host-menu .dh-menu-hint {
+  color: #8a96a6 !important;
 }

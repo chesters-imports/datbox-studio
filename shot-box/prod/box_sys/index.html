@@ -176,6 +176,15 @@
                         />
                       </div>
                       <div class="meta-lines">
+                        <div class="meta-line" id="f-tps-line" hidden>
+                          <span class="meta-k">TPS chip</span>
+                          <span
+                            class="meta-v mono tps-chip"
+                            id="f-tps"
+                            title="Message chip from Time Machina when this shot was minted"
+                            >—</span
+                          >
+                        </div>
                         <div class="meta-line gravity-line">
                           <span class="meta-k">Gravity</span>
                           <select id="f-gravity">
@@ -199,6 +208,10 @@
                         <div class="meta-line">
                           <span class="meta-k">Store code</span>
                           <span class="meta-v mono" id="v-shot-code">—</span>
+                        </div>
+                        <div class="meta-line" id="v-tps-line" hidden>
+                          <span class="meta-k">TPS chip</span>
+                          <span class="meta-v mono tps-chip" id="v-tps">—</span>
                         </div>
                       </div>
                       <div class="view-block" id="v-slug-wrap">
@@ -290,6 +303,7 @@
       </div>
     </div>
 
+    <script src="theme.js"></script>
     <script src="app.js"></script>
   </body>
 </html>

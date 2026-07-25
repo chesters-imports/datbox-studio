@@ -12,7 +12,7 @@ import sys
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from typing import Any
-from urllib.parse import parse_qs, urlparse
+from urllib.parse import parse_qs, unquote, urlparse
 
 BOX_SYS = Path(__file__).resolve().parent
 PROD = BOX_SYS.parent
@@ -217,6 +217,70 @@ def apply_card_fields(card: dict[str, Any], body: dict[str, Any]) -> None:
         card["gravity"] = int(body.get("gravity") or 0)
     if "relates" in body and isinstance(body.get("relates"), list):
         card["relates"] = body["relates"]
+    # Time Machina nick — short; full archaeology in .tpsbook.
+    # Only SET when non-empty. Never wipe on "" (saves used to erase nicks).
+    stamp_tps_nick(card, body)
+
+
+def stamp_tps_nick(card: dict[str, Any], body: dict[str, Any]) -> bool:
+    """Write tps_chip / tps_export onto card dict. Returns True if any field set."""
+    if body.get("tps_clear"):
+        if "tps_chip" in card or "tps_export" in card:
+            card.pop("tps_chip", None)
+            card.pop("tps_export", None)
+            return True
+        return False
+    tps_chip = str(body.get("tps_chip") or body.get("chip_id") or "").strip()
+    tps_export = str(body.get("tps_export") or body.get("export_id") or "").strip()
+    wrote = False
+    if tps_chip:
+        card["tps_chip"] = tps_chip
+        wrote = True
+    if tps_export:
+        card["tps_export"] = tps_export
+        wrote = True
+    return wrote
+
+
+def find_card(data: dict[str, Any], code: str) -> dict[str, Any] | None:
+    code = unquote(code or "").strip()
+    for card in data.get("cards") or []:
+        if card.get("shot_code") == code:
+            return card
+    for card in data.get("cards") or []:
+        sc = card.get("shot_code") or ""
+        if sc.lower() == code.lower():
+            return card
+    return None
+
+
+def persist_card_tps(
+    stem: str, code: str, tps_chip: str, tps_export: str = ""
+) -> dict[str, Any]:
+    """Atomic nick write to safe_box/*.shot. Always flush to disk when chip set."""
+    stem = re.sub(r"[^\w\-]+", "", stem)
+    p = shot_path(stem)
+    if not p.exists():
+        raise FileNotFoundError(str(p))
+    data = load_json(p)
+    found = find_card(data, code)
+    if not found:
+        raise KeyError(unquote(code or ""))
+    body = {"tps_chip": tps_chip, "tps_export": tps_export or ""}
+    if not str(tps_chip or "").strip():
+        raise ValueError("tps_chip required")
+    stamp_tps_nick(found, body)
+    save_json(p, data)
+    # Reload from disk so response is ground truth
+    data = load_json(p)
+    found = find_card(data, code) or found
+    return {
+        "box": data,
+        "card": found,
+        "path": str(p.resolve()),
+        "tps_chip": found.get("tps_chip"),
+        "tps_export": found.get("tps_export"),
+    }
 
 
 class Handler(SimpleHTTPRequestHandler):
@@ -250,7 +314,14 @@ class Handler(SimpleHTTPRequestHandler):
 
         if path == "/api/health":
             return self._send(
-                200, {"ok": True, "app": "shotBOX", "safe_box": str(SAFE_BOX)}
+                200,
+                {
+                    "ok": True,
+                    "app": "shotBOX",
+                    "safe_box": str(SAFE_BOX),
+                    "tps_route": "/api/tps",
+                    "build": "tps-body-stamp-v2",
+                },
             )
         if path == "/api/boxes":
             return self._send(200, {"boxes": list_boxes()})
@@ -311,6 +382,47 @@ class Handler(SimpleHTTPRequestHandler):
             save_json(BOX_SETS / "relation_types.json", data)
             return self._send(200, data)
 
+        # POST /api/tps — nick-only stamp (body carries stem+code; no .shot in URL)
+        # Also accept legacy path form …/card/{code}/tps
+        if path == "/api/tps" or (
+            path.startswith("/api/box/") and path.rstrip("/").endswith("/tps")
+        ):
+            if path == "/api/tps":
+                stem = str(body.get("stem") or "").strip()
+                code = str(body.get("code") or body.get("shot_code") or "").strip()
+            else:
+                rest = path.rstrip("/")[len("/api/box/") : -len("/tps")]
+                if "/card/" not in rest:
+                    return self._send(
+                        404, {"error": "tps path needs /card/", "path": path}
+                    )
+                stem, _, code = rest.partition("/card/")
+            chip = str(body.get("tps_chip") or body.get("chip_id") or "").strip()
+            exp = str(body.get("tps_export") or body.get("export_id") or "").strip()
+            if not stem or not code:
+                return self._send(
+                    400,
+                    {
+                        "error": "stem and code required",
+                        "stem": stem,
+                        "code": code,
+                        "path": path,
+                    },
+                )
+            if not chip:
+                return self._send(400, {"error": "tps_chip required"})
+            try:
+                out = persist_card_tps(stem, code, chip, exp)
+            except FileNotFoundError as e:
+                return self._send(404, {"error": "box not found", "detail": str(e)})
+            except KeyError as e:
+                return self._send(404, {"error": "card not found", "code": str(e)})
+            except ValueError as e:
+                return self._send(400, {"error": str(e)})
+            out["ok"] = True
+            out["route"] = "api/tps"
+            return self._send(200, out)
+
         if path.startswith("/api/box/") and path.endswith("/card"):
             stem = re.sub(r"[^\w\-]+", "", path[len("/api/box/") : -len("/card")])
             p = shot_path(stem)
@@ -322,6 +434,7 @@ class Handler(SimpleHTTPRequestHandler):
             apply_card_fields(card, body)
             # store pot fixed at mint; scene_code may be set freely (e.g. e60)
             card["shot_code"] = f"{stem}-{seq:03d}.shot"
+            stamp_tps_nick(card, body)
             data.setdefault("cards", []).append(card)
             data["next_seq"] = seq + 1
             save_json(p, data)
@@ -345,13 +458,9 @@ class Handler(SimpleHTTPRequestHandler):
                 if not p.exists():
                     return self._send(404, {"error": "box not found"})
                 data = load_json(p)
-                found = None
-                for card in data.get("cards") or []:
-                    if card.get("shot_code") == code:
-                        found = card
-                        break
+                found = find_card(data, code)
                 if not found:
-                    return self._send(404, {"error": "card not found"})
+                    return self._send(404, {"error": "card not found", "code": unquote(code)})
                 apply_card_fields(found, body)
                 save_json(p, data)
                 return self._send(200, {"box": data, "card": found})
