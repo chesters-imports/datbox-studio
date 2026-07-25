@@ -10,12 +10,6 @@ node_modules/
 *.sqlite-shm
 *.sqlite-wal
 
-# operator vault (keep folder, ignore personal mats)
-lore-box/prod/safe_box/**
-!lore-box/prod/safe_box/.gitkeep
-
-# ROM runtime
+# Runtime noise only — mats in safe_box are shippable house content
 **/box_sys/desk-server.log
-**/safe_box/**
-!**/safe_box/.gitkeep
-
+**/box_sys/__pycache__/
