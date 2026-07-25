@@ -69,11 +69,16 @@ def shot_path(stem: str) -> Path:
 
 
 def load_json(path: Path) -> Any:
-    return json.loads(path.read_text(encoding="utf-8"))
+    # utf-8-sig: tolerate BOM from editors / PowerShell Set-Content
+    return json.loads(path.read_text(encoding="utf-8-sig"))
 
 
 def save_json(path: Path, data: Any) -> None:
-    path.write_text(json.dumps(data, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
+    path.write_text(
+        json.dumps(data, indent=2, ensure_ascii=False) + "\n",
+        encoding="utf-8",
+        newline="\n",
+    )
 
 
 def empty_box(box_name: str, stem: str) -> dict[str, Any]:
@@ -253,7 +258,16 @@ class Handler(SimpleHTTPRequestHandler):
             return self._send(200, {"cards": all_cards_index()})
         if path == "/api/settings/relation_types":
             ensure_dirs()
-            return self._send(200, load_json(BOX_SETS / "relation_types.json"))
+            try:
+                return self._send(200, load_json(BOX_SETS / "relation_types.json"))
+            except (OSError, json.JSONDecodeError) as e:
+                # heal corrupt/BOM settings so the desk still boots
+                data = {
+                    "version": 1,
+                    "types": ["Relates to", "Frames", "Before", "After", "Intercut"],
+                }
+                save_json(BOX_SETS / "relation_types.json", data)
+                return self._send(200, data)
         if path == "/api/stem":
             qs = parse_qs(parsed.query)
             name = (qs.get("name") or [""])[0]

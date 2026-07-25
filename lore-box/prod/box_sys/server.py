@@ -66,11 +66,16 @@ def lore_path(stem: str) -> Path:
 
 
 def load_json(path: Path) -> Any:
-    return json.loads(path.read_text(encoding="utf-8"))
+    # utf-8-sig: tolerate BOM from editors / PowerShell Set-Content
+    return json.loads(path.read_text(encoding="utf-8-sig"))
 
 
 def save_json(path: Path, data: Any) -> None:
-    path.write_text(json.dumps(data, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
+    path.write_text(
+        json.dumps(data, indent=2, ensure_ascii=False) + "\n",
+        encoding="utf-8",
+        newline="\n",
+    )
 
 
 def empty_box(box_name: str, stem: str) -> dict[str, Any]:

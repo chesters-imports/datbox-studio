@@ -1,4 +1,9 @@
-﻿{
+{
   "version": 1,
-  "types": ["Relates to", "Frames", "Before", "After"]
+  "types": [
+    "Relates to",
+    "Frames",
+    "Before",
+    "After"
+  ]
 }
