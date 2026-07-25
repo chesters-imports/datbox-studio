@@ -965,6 +965,20 @@ function err(e) {
   setStatus(String(e.message || e), true);
 }
 
+async function waitForDesk(retries = 40, delayMs = 150) {
+  let last = null;
+  for (let i = 0; i < retries; i++) {
+    try {
+      await api("/api/health");
+      return true;
+    } catch (e) {
+      last = e;
+      await new Promise((r) => setTimeout(r, delayMs));
+    }
+  }
+  throw last || new Error("desk not reachable");
+}
+
 async function boot() {
   bind();
   sessionReady = false;
@@ -979,7 +993,9 @@ async function boot() {
   applyRailDom(); // do NOT persist yet — would wipe stem
 
   try {
-    await api("/api/health");
+    // Retry: Deck Host may open the window a beat before the ROM server is ready
+    setStatus("Connecting to shotBOX desk…");
+    await waitForDesk();
     await refreshRelationTypes();
     await refreshBoxes();
     await refreshCatalog();
@@ -989,11 +1005,12 @@ async function boot() {
     renderAll();
     sessionReady = true;
     persistSession(); // write clean snapshot after restore
-    if (!restored && !state.box) setStatus("DATBOX is ready");
+    if (!restored && !state.box) setStatus("shotBOX is ready · watchers · i see you");
   } catch (e) {
     sessionReady = true;
+    console.error("shotBOX boot", e);
     setStatus(
-      "Cannot reach desk server. From box_sys run: python server.py — then open http://127.0.0.1:43001/",
+      "Cannot reach desk server on :43001. Close other shotBOX hosts, check box_sys/desk-server.log, or run: python server.py",
       true
     );
     renderAll();

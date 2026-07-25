@@ -89,9 +89,11 @@ def empty_box(box_name: str, stem: str) -> dict[str, Any]:
 
 
 def empty_card(stem: str, seq: int) -> dict[str, Any]:
+    # shot_code = bag identity (immutable pot). scene_code = production label (e60, etc.)
     code = f"{stem}-{seq:03d}.shot"
     return {
         "shot_code": code,
+        "scene_code": "",
         "title": "",
         "raw_prose": "",
         "shotslug": "",
@@ -147,6 +149,7 @@ def all_cards_index() -> list[dict[str, Any]]:
                     "box_stem": stem,
                     "box_name": box_name,
                     "shot_code": card.get("shot_code") or "",
+                    "scene_code": card.get("scene_code") or "",
                     "title": card.get("title") or "",
                     "shotslug": card.get("shotslug") or "",
                 }
@@ -189,7 +192,9 @@ def patch_relates_across(old_stem: str, new_stem: str) -> None:
 
 
 def apply_card_fields(card: dict[str, Any], body: dict[str, Any]) -> None:
+    # Never overwrite shot_code from client — that is the bag pot / store id
     keys = (
+        "scene_code",
         "title",
         "raw_prose",
         "shotslug",
@@ -199,7 +204,6 @@ def apply_card_fields(card: dict[str, Any], body: dict[str, Any]) -> None:
         "transition",
         "amusement",
         "tone_tags",
-        "shot_code",
     )
     for k in keys:
         if k in body:
@@ -208,7 +212,6 @@ def apply_card_fields(card: dict[str, Any], body: dict[str, Any]) -> None:
         card["gravity"] = int(body.get("gravity") or 0)
     if "relates" in body and isinstance(body.get("relates"), list):
         card["relates"] = body["relates"]
-    # shot_code stays identity unless explicit rename on create only
 
 
 class Handler(SimpleHTTPRequestHandler):
@@ -303,8 +306,8 @@ class Handler(SimpleHTTPRequestHandler):
             seq = int(data.get("next_seq") or 1)
             card = empty_card(stem, seq)
             apply_card_fields(card, body)
-            if not (card.get("shot_code") or "").strip():
-                card["shot_code"] = f"{stem}-{seq:03d}.shot"
+            # store pot fixed at mint; scene_code may be set freely (e.g. e60)
+            card["shot_code"] = f"{stem}-{seq:03d}.shot"
             data.setdefault("cards", []).append(card)
             data["next_seq"] = seq + 1
             save_json(p, data)
@@ -401,15 +404,27 @@ class Handler(SimpleHTTPRequestHandler):
         return self._send(404, {"error": "not found"})
 
 
+class DeskServer(ThreadingHTTPServer):
+    allow_reuse_address = True
+    # avoid long TIME_WAIT blocking re-launch on Windows
+    daemon_threads = True
+
+
 def main() -> None:
     ensure_dirs()
-    httpd = ThreadingHTTPServer((HOST, PORT), Handler)
-    print(f"shotBOX desk  http://{HOST}:{PORT}/")
-    print(f"safe_box      {SAFE_BOX}")
+    try:
+        httpd = DeskServer((HOST, PORT), Handler)
+    except OSError as e:
+        print(f"shotBOX failed to bind {HOST}:{PORT} — {e}", file=sys.stderr)
+        print("Is another shotBOX (or process) already using that port?", file=sys.stderr)
+        sys.exit(1)
+    print(f"shotBOX desk  http://{HOST}:{PORT}/", flush=True)
+    print(f"safe_box      {SAFE_BOX}", flush=True)
+    print(f"box_sys       {BOX_SYS}", flush=True)
     try:
         httpd.serve_forever()
     except KeyboardInterrupt:
-        print("\nbye")
+        print("\nbye", flush=True)
         httpd.server_close()
 
 

@@ -1,0 +1,5 @@
+shotBOX desk  http://127.0.0.1:43001/
+safe_box      C:\ALICE_BOX\datbox-studio\shot-box\prod\safe_box
+box_sys       C:\ALICE_BOX\datbox-studio\shot-box\prod\box_sys
+127.0.0.1 - "GET / HTTP/1.1" 200 -
+127.0.0.1 - "GET /api/health HTTP/1.1" 200 -

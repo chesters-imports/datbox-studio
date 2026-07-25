@@ -34,11 +34,14 @@ Ledger kind: `shot_card` · tool: `shotDesk`
 
 These are the real form fields from the desk. shotBOX should mean the same things.
 
-**Shot Code**
-Required. Shot number.
+**Store code** (`shot_code`)  
+Bag pot · minted as `{STEM}-001.shot` · **not** rewritten when you rename the scene. API looks up the card by this.
 
-**Title**
-Required. Display name of the shot. Stored as the card’s face title (`topic` on old desk).
+**Scene code** (`scene_code`)  
+Chosen production / scene id (e.g. **e60**). Free to edit. Face label in the list when set.
+
+**Title**  
+Display name of the shot.
 
 Raw Prose
 Optional. For use if the shot is not yet broken into its parts. `hands: Long goal: API the split from raw prose into collected card format`

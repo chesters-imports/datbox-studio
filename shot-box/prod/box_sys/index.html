@@ -109,8 +109,19 @@
                   <div id="editor" class="editor" hidden>
                     <div id="card-edit" class="card-edit">
                       <div class="field">
-                        <span>Shot code</span>
-                        <input type="text" id="f-shot-code" autocomplete="off" />
+                        <span>Store code</span>
+                        <div class="core-readonly mono" id="f-shot-code">—</div>
+                        <p class="field-hint">Bag pot · fixed at mint (e.g. TB-001.shot)</p>
+                      </div>
+                      <div class="field">
+                        <span>Scene code</span>
+                        <input
+                          type="text"
+                          id="f-scene-code"
+                          placeholder="e.g. e60"
+                          autocomplete="off"
+                        />
+                        <p class="field-hint">Your chosen production / scene id</p>
                       </div>
                       <div class="field">
                         <span>Title</span>
@@ -182,7 +193,13 @@
                     <div id="card-view" class="card-view" hidden>
                       <div class="view-head">
                         <div class="view-v title-view" id="v-title">—</div>
-                        <div class="meta-v mono" id="v-shot-code">—</div>
+                        <div class="meta-v mono" id="v-scene-code">—</div>
+                      </div>
+                      <div class="meta-lines">
+                        <div class="meta-line">
+                          <span class="meta-k">Store code</span>
+                          <span class="meta-v mono" id="v-shot-code">—</span>
+                        </div>
                       </div>
                       <div class="view-block" id="v-slug-wrap">
                         <span class="meta-k">Shotslug</span>

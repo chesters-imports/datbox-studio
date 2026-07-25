@@ -398,21 +398,27 @@ class Handler(SimpleHTTPRequestHandler):
         return self._send(404, {"error": "not found"})
 
 
+class DeskServer(ThreadingHTTPServer):
+    allow_reuse_address = True
+    daemon_threads = True
+
+
 def main() -> None:
     ensure_dirs()
-    httpd = ThreadingHTTPServer((HOST, PORT), Handler)
-    # B5: cute tester host — *.localhost resolves to loopback in modern browsers (no hosts file).
+    try:
+        httpd = DeskServer((HOST, PORT), Handler)
+    except OSError as e:
+        print(f"loreBOX failed to bind {HOST}:{PORT} — {e}", file=sys.stderr)
+        sys.exit(1)
     cute = f"http://datbox.lorebox.localhost:{PORT}/"
     plain = f"http://{HOST}:{PORT}/"
-    print(f"loreBOX desk  {cute}")
-    print(f"              {plain}")
-    print(f"safe_box      {SAFE_BOX}")
-    print(f"box_sets      {BOX_SETS}")
-    print("Ctrl+C to stop")
+    print(f"loreBOX desk  {cute}", flush=True)
+    print(f"              {plain}", flush=True)
+    print(f"safe_box      {SAFE_BOX}", flush=True)
     try:
         httpd.serve_forever()
     except KeyboardInterrupt:
-        print("\nbye")
+        print("\nbye", flush=True)
         httpd.server_close()
 
 

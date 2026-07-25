@@ -922,7 +922,19 @@ async function boot() {
   applyRailDom(); // do NOT persist yet — would wipe stem
 
   try {
-    await api("/api/health");
+    setStatus("Connecting to loreBOX desk…");
+    let last = null;
+    for (let i = 0; i < 40; i++) {
+      try {
+        await api("/api/health");
+        last = null;
+        break;
+      } catch (e) {
+        last = e;
+        await new Promise((r) => setTimeout(r, 150));
+      }
+    }
+    if (last) throw last;
     await refreshRelationTypes();
     await refreshBoxes();
     await refreshCatalog();
@@ -932,11 +944,12 @@ async function boot() {
     renderAll();
     sessionReady = true;
     persistSession(); // write clean snapshot after restore
-    if (!restored && !state.box) setStatus("DATBOX is ready");
+    if (!restored && !state.box) setStatus("loreBOX is ready");
   } catch (e) {
     sessionReady = true;
+    console.error("loreBOX boot", e);
     setStatus(
-      "Cannot reach desk server. From box_sys run: python server.py — then open http://127.0.0.1:42929/",
+      "Cannot reach desk server on :42929. Check box_sys/desk-server.log or run: python server.py",
       true
     );
     renderAll();
