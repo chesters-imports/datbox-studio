@@ -22,7 +22,8 @@ def main() -> int:
     if not DECK_HOST_PY.is_file():
         print(f"The Deck Host not found: {DECK_HOST_PY}", file=sys.stderr)
         return 1
-    server_cmd = f'"{sys.executable}" server.py'
+    # Real argv to host — loreBOX on :42929, shotBOX on :43001 (do not share servers)
+    server_cmd = f"{sys.executable} server.py"
     cmd = [
         sys.executable,
         str(DECK_HOST_PY),

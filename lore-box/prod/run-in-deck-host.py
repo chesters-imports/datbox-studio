@@ -36,8 +36,8 @@ def main() -> int:
         print("Expected sibling island: ALICE_BOX/the-deck-host/shell/", file=sys.stderr)
         return 1
 
-    # Spawn server.py via host --spawn; host kills it on exit
-    server_cmd = f'"{sys.executable}" server.py'
+    # Spawn as real argv (no cmd.exe) so host kill only hits this ROM's server
+    server_cmd = f"{sys.executable} server.py"
     cmd = [
         sys.executable,
         str(DECK_HOST_PY),

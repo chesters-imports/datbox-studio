@@ -79,6 +79,7 @@ function fillCardView() {
   const g = Number(state.card.gravity ?? 0);
   const c = state.card;
   $("#v-title").textContent = c.title || "(no title)";
+  $("#v-scene-code").textContent = c.scene_code || "—";
   $("#v-shot-code").textContent = c.shot_code || "—";
   $("#v-shotslug").textContent = c.shotslug || "—";
   $("#v-raw").textContent = c.raw_prose || "—";
@@ -203,7 +204,7 @@ function clearContextFields() {
 
 function clearEditorFields() {
   const ids = [
-    "f-shot-code",
+    "f-scene-code",
     "f-title",
     "f-raw",
     "f-shotslug",
@@ -218,6 +219,9 @@ function clearEditorFields() {
     const el = $(`#${id}`);
     if (el) el.value = "";
   }
+  const store = $("#f-shot-code");
+  if (store) store.textContent = "—";
+
   const g = $("#f-gravity");
   if (g) g.value = "0";
   const relList = $("#rel-list");
@@ -339,8 +343,9 @@ function renderCardList() {
       "list-item" +
       (state.card && state.card.shot_code === c.shot_code ? " active" : "");
     const g = c.gravity > 0 ? ` · g${c.gravity}` : "";
+    const face = c.scene_code || c.shot_code || "";
     btn.innerHTML = `<span>${escapeHtml(c.title || "(no title)")}</span>
-      <span class="sub">${escapeHtml(c.shotslug || c.shot_code || "")}${g}</span>`;
+      <span class="sub">${escapeHtml(face)}${c.shotslug ? " · " + escapeHtml(c.shotslug) : ""}${g}</span>`;
     btn.addEventListener("click", () => {
       if (state.dirty && state.cardMode === "edit" && !confirm("Discard unsaved edits on this card?"))
         return;
@@ -371,7 +376,9 @@ function renderEditor() {
   ed.hidden = false;
 
   const c = state.card;
-  $("#f-shot-code").value = c.shot_code || "";
+  const storeEl = $("#f-shot-code");
+  if (storeEl) storeEl.textContent = c.shot_code || "—";
+  $("#f-scene-code").value = c.scene_code || "";
   $("#f-title").value = c.title || "";
   $("#f-raw").value = c.raw_prose || "";
   $("#f-shotslug").value = c.shotslug || "";
@@ -496,7 +503,8 @@ function escapeHtml(s) {
 
 function readEditorIntoCard() {
   if (!state.card) return;
-  state.card.shot_code = ($("#f-shot-code").value || "").trim() || state.card.shot_code;
+  // shot_code is bag pot — never taken from the form
+  state.card.scene_code = ($("#f-scene-code").value || "").trim();
   state.card.title = $("#f-title").value;
   state.card.raw_prose = $("#f-raw").value;
   state.card.shotslug = $("#f-shotslug").value;
@@ -512,7 +520,7 @@ function readEditorIntoCard() {
 function cardPayload() {
   const c = state.card;
   return {
-    shot_code: c.shot_code,
+    scene_code: c.scene_code || "",
     title: c.title,
     raw_prose: c.raw_prose,
     shotslug: c.shotslug,
@@ -936,7 +944,7 @@ function bind() {
   if (railClose) railClose.addEventListener("click", () => setRailCollapsed(true));
 
   for (const id of [
-    "f-shot-code",
+    "f-scene-code",
     "f-title",
     "f-raw",
     "f-shotslug",
@@ -947,7 +955,8 @@ function bind() {
     "f-amusement",
     "f-tags",
   ]) {
-    $(`#${id}`).addEventListener("input", () => markDirty(true));
+    const el = $(`#${id}`);
+    if (el) el.addEventListener("input", () => markDirty(true));
   }
   $("#f-gravity").addEventListener("change", () => markDirty(true));
 }
@@ -984,7 +993,7 @@ async function boot() {
   } catch (e) {
     sessionReady = true;
     setStatus(
-      "Cannot reach desk server. From box_sys run: python server.py — then open http://127.0.0.1:42929/",
+      "Cannot reach desk server. From box_sys run: python server.py — then open http://127.0.0.1:43001/",
       true
     );
     renderAll();
