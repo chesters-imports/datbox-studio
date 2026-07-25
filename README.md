@@ -7,7 +7,12 @@
 
 **DatBox Studio** makes **DATBOX** software — box apps for the pocket world.
 
-Products live in this house as their own bays. First on the shelf: **loreBOX**.
+Products live in this house as their own bays.
+
+| Bay | ROM |
+|-----|-----|
+| `lore-box/` | **loreBOX** — LORE mats |
+| `shot-box/` | **shotBOX** — SHOT mats (moments / frames) |
 
 ### House rule
 

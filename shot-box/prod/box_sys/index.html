@@ -1,0 +1,278 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>shotBOX</title>
+    <link rel="stylesheet" href="app.css" />
+  </head>
+  <body>
+    <div id="app">
+      <header class="app-chrome" data-deck-chrome>
+        <span class="chip" data-deck-menu title="Menu">shot<strong>BOX</strong></span>
+        <span class="chrome-meta" id="chrome-meta" data-deck-drag
+          >DATBOX Studio - no BOX loaded</span
+        >
+        <div class="deck-win" data-deck-window-controls aria-label="Window"></div>
+      </header>
+
+      <div class="work">
+        <div class="rail-column">
+          <button type="button" class="rail-tab" id="btn-rail-open" title="Open safe box" hidden>
+            »
+          </button>
+          <aside class="region rail" id="safe-rail" aria-label="Safe box">
+            <div class="region-head">
+              <span>Safe box</span>
+              <button type="button" class="btn linkish rail-close" id="btn-rail-close" title="Collapse">
+                «
+              </button>
+            </div>
+            <div class="region-body" id="box-list"></div>
+            <div class="region-foot dock" role="toolbar">
+              <button type="button" class="btn dock-btn" id="btn-new-box" title="New box">+</button>
+              <button type="button" class="btn dock-btn" id="btn-rename" title="Rename box" disabled>
+                ⚙
+              </button>
+              <button
+                type="button"
+                class="btn dock-btn danger"
+                id="btn-del-box"
+                title="Delete box"
+                disabled
+              >
+                🗑
+              </button>
+            </div>
+          </aside>
+        </div>
+
+        <div class="main" id="main-pane">
+          <div id="main-empty" class="main-empty">
+            <p class="empty-hint">
+              Select a shotBOX in the safe box rail,<br />
+              or create one here.
+            </p>
+            <p class="empty-whisper">production material · not lore encyclopedia</p>
+            <button type="button" class="btn cta-new" id="btn-new-box-empty">New box</button>
+          </div>
+
+          <div id="main-loaded" class="main-loaded" hidden>
+            <div class="context-strip" aria-label="Loaded box">
+              <div class="meta-display">
+                <span class="meta-k">Shotbox name</span>
+                <span class="meta-v" id="meta-box-name">—</span>
+              </div>
+              <div class="meta-display">
+                <span class="meta-k">Slug code</span>
+                <span class="meta-v mono" id="meta-stem">—</span>
+              </div>
+              <span class="meta-note">Rename via ⚙ · watchers · i see you</span>
+            </div>
+
+            <div class="main-split">
+              <section class="region cards" aria-label="Shots">
+                <div class="region-head">
+                  <span>Shots</span>
+                  <button type="button" class="btn btn-icon" id="btn-new-card" title="New shot">
+                    +
+                  </button>
+                </div>
+                <div class="region-body" id="card-list"></div>
+              </section>
+
+              <section class="region editor-region" aria-label="Shot card">
+                <div class="region-head">
+                  <span>Shot card</span>
+                  <div class="head-actions">
+                    <button type="button" class="btn btn-save-pop" id="btn-save" disabled>
+                      Save shot
+                    </button>
+                    <button type="button" class="btn" id="btn-edit-card" hidden>Edit</button>
+                    <button
+                      type="button"
+                      class="btn btn-icon danger"
+                      id="btn-del-card"
+                      title="Delete shot"
+                      disabled
+                      hidden
+                    >
+                      🗑
+                    </button>
+                  </div>
+                </div>
+                <div class="region-body">
+                  <div id="editor-empty" class="empty-hint">
+                    No shot selected.<br />
+                    + mints a shot card, or pick one from the list.
+                  </div>
+                  <div id="editor" class="editor" hidden>
+                    <div id="card-edit" class="card-edit">
+                      <div class="field">
+                        <span>Shot code</span>
+                        <input type="text" id="f-shot-code" autocomplete="off" />
+                      </div>
+                      <div class="field">
+                        <span>Title</span>
+                        <input type="text" id="f-title" autocomplete="off" />
+                      </div>
+                      <div class="field prime">
+                        <span>Raw prose</span>
+                        <textarea
+                          id="f-raw"
+                          placeholder="Optional · unsplit scene before construction"
+                        ></textarea>
+                      </div>
+                      <div class="field">
+                        <span>Shotslug / location</span>
+                        <input
+                          type="text"
+                          id="f-shotslug"
+                          placeholder="INT. OPS ROOM — NIGHT"
+                          autocomplete="off"
+                        />
+                      </div>
+                      <div class="field prime">
+                        <span>Visual</span>
+                        <textarea id="f-visual" placeholder="what the camera sees"></textarea>
+                      </div>
+                      <div class="field prime">
+                        <span>Action</span>
+                        <textarea id="f-action" placeholder="what bodies do"></textarea>
+                      </div>
+                      <div class="field prime">
+                        <span>Dialogue</span>
+                        <textarea id="f-dialogue" placeholder="lines · VO · whispers"></textarea>
+                      </div>
+                      <div class="field">
+                        <span>Transition</span>
+                        <textarea id="f-transition" placeholder="fade to stupid black…"></textarea>
+                      </div>
+                      <div class="field">
+                        <span>Amusement note</span>
+                        <textarea
+                          id="f-amusement"
+                          placeholder="why this forces main-character energy"
+                        ></textarea>
+                      </div>
+                      <div class="field">
+                        <span>Tone / motif tags</span>
+                        <input
+                          type="text"
+                          id="f-tags"
+                          placeholder="alert, wire-death, sweater-girl"
+                          autocomplete="off"
+                        />
+                      </div>
+                      <div class="meta-lines">
+                        <div class="meta-line gravity-line">
+                          <span class="meta-k">Gravity</span>
+                          <select id="f-gravity">
+                            <option value="0">0 · unset</option>
+                            <option value="1">1</option>
+                            <option value="2">2</option>
+                            <option value="3">3</option>
+                            <option value="4">4</option>
+                            <option value="5">5</option>
+                          </select>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div id="card-view" class="card-view" hidden>
+                      <div class="view-head">
+                        <div class="view-v title-view" id="v-title">—</div>
+                        <div class="meta-v mono" id="v-shot-code">—</div>
+                      </div>
+                      <div class="view-block" id="v-slug-wrap">
+                        <span class="meta-k">Shotslug</span>
+                        <div class="view-v slug-view" id="v-shotslug">—</div>
+                      </div>
+                      <div class="view-block" id="v-raw-wrap" hidden>
+                        <span class="meta-k">Raw prose</span>
+                        <div class="view-v prime-view" id="v-raw">—</div>
+                      </div>
+                      <div class="view-block" id="v-visual-wrap">
+                        <span class="meta-k">Visual</span>
+                        <div class="view-v prime-view" id="v-visual">—</div>
+                      </div>
+                      <div class="view-block" id="v-action-wrap">
+                        <span class="meta-k">Action</span>
+                        <div class="view-v prime-view" id="v-action">—</div>
+                      </div>
+                      <div class="view-block" id="v-dialogue-wrap">
+                        <span class="meta-k">Dialogue</span>
+                        <div class="view-v prime-view dialogue-view" id="v-dialogue">—</div>
+                      </div>
+                      <div class="view-block" id="v-transition-wrap">
+                        <span class="meta-k">Transition</span>
+                        <div class="view-v" id="v-transition">—</div>
+                      </div>
+                      <div class="view-block" id="v-amusement-wrap">
+                        <span class="meta-k">Amusement</span>
+                        <div class="view-v" id="v-amusement">—</div>
+                      </div>
+                      <div class="meta-lines">
+                        <div class="meta-line">
+                          <span class="meta-k">Tags</span>
+                          <span class="meta-v" id="v-tags">—</span>
+                        </div>
+                        <div class="meta-line">
+                          <span class="meta-k">Gravity</span>
+                          <span class="meta-v" id="v-gravity">—</span>
+                        </div>
+                      </div>
+                    </div>
+
+                    <hr class="section-hr" />
+                    <div class="field relates">
+                      <span>Connections</span>
+                      <div class="relate-list" id="rel-list"></div>
+                      <button type="button" class="btn" id="btn-rel-open">
+                        Connect Related Shot
+                      </button>
+                      <div id="rel-form" class="rel-form" hidden>
+                        <div class="relate-row">
+                          <select id="rel-box"></select>
+                          <select id="rel-card"></select>
+                          <select id="rel-type"></select>
+                        </div>
+                        <div class="relate-row">
+                          <button type="button" class="btn" id="btn-rel-add">Attach</button>
+                          <button type="button" class="btn linkish" id="btn-rel-type-add">
+                            + type
+                          </button>
+                          <button type="button" class="btn linkish" id="btn-rel-cancel">
+                            Cancel
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </section>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <footer class="status" id="status">starting…</footer>
+    </div>
+
+    <div id="dlg-overlay" class="dlg-overlay" hidden>
+      <div class="dlg" role="dialog" aria-modal="true" aria-labelledby="dlg-title">
+        <header class="dlg-chrome">
+          <span class="chip dlg-chip">shot<strong>BOX</strong></span>
+          <span class="dlg-title" id="dlg-title">Dialog</span>
+        </header>
+        <div class="dlg-body" id="dlg-body"></div>
+        <footer class="dlg-actions">
+          <button type="button" class="btn linkish" id="dlg-cancel">Cancel</button>
+          <button type="button" class="btn cta-new" id="dlg-ok">OK</button>
+        </footer>
+      </div>
+    </div>
+
+    <script src="app.js"></script>
+  </body>
+</html>
