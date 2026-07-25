@@ -8,10 +8,13 @@
   </head>
   <body>
     <div id="app">
-      <header class="app-chrome">
+      <!-- data-deck-chrome: The Deck Host fuses window controls into this bar -->
+      <header class="app-chrome" data-deck-chrome>
         <span class="chip">lore<strong>BOX</strong></span>
-        <span class="chrome-meta" id="chrome-meta">DATBOX Studio · select a box in safe_box</span>
-        
+        <span class="chrome-meta" id="chrome-meta" data-deck-drag
+          >DATBOX Studio - no BOX loaded</span
+        >
+        <div class="deck-win" data-deck-window-controls aria-label="Window"></div>
       </header>
 
       <div class="work">

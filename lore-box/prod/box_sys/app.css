@@ -42,10 +42,33 @@ body {
   display: flex;
   align-items: center;
   gap: 10px;
-  padding: 8px 12px;
+  padding: 0 0 0 12px;
+  min-height: 36px;
   border-bottom: 1px solid var(--line);
   flex-shrink: 0;
   background: #e8edf2;
+}
+
+/* Deck Host integration: window controls sit in the loreBOX header */
+.app-chrome .chrome-meta {
+  flex: 1;
+  min-width: 0;
+  align-self: stretch;
+  display: flex;
+  align-items: center;
+  padding-right: 8px;
+}
+
+.app-chrome .deck-win {
+  display: flex;
+  flex-shrink: 0;
+  align-self: stretch;
+  margin-left: auto;
+}
+
+/* When not in Deck Host, empty slot collapses */
+.app-chrome .deck-win:empty {
+  display: none;
 }
 
 .chip {
