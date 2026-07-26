@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
 shotBOX desk server — shotDesk model as DATBOX ROM.
-Serves box_sys; saves only ../safe_box/*.shot and ../box_sets/*
+Serves box_sys; saves only ../safe_box/*.shotbox (legacy *.shot accepted) and ../box_sets/*
 """
 
 from __future__ import annotations
@@ -61,11 +61,45 @@ def stem_type_a(name: str) -> str:
     return "".join(parts) or "X"
 
 
+BAG_EXT = ".shotbox"  # the box of {stem}'s
+BAG_EXT_LEGACY = ".shot"
+UNIT_EXT = ".shot"  # unit code ending (card kind)
+
+
 def shot_path(stem: str) -> Path:
+    """Canonical bag path: {stem}.shotbox"""
     safe = re.sub(r"[^\w\-]+", "", stem, flags=re.UNICODE)
     if not safe:
         raise ValueError("empty stem")
-    return SAFE_BOX / f"{safe}.shot"
+    return SAFE_BOX / f"{safe}{BAG_EXT}"
+
+
+def resolve_shot_path(stem: str) -> Path:
+    """Prefer .shotbox; migrate legacy .shot → .shotbox on first touch."""
+    canonical = shot_path(stem)
+    if canonical.is_file():
+        return canonical
+    legacy = SAFE_BOX / f"{canonical.stem}{BAG_EXT_LEGACY}"
+    if legacy.is_file():
+        try:
+            legacy.rename(canonical)
+        except OSError:
+            return legacy
+        return canonical
+    return canonical
+
+
+def iter_shot_bags():
+    seen = set()
+    for p in sorted(
+        list(SAFE_BOX.glob(f"*{BAG_EXT}")) + list(SAFE_BOX.glob(f"*{BAG_EXT_LEGACY}"))
+    ):
+        if p.stem in seen:
+            continue
+        if p.suffix == BAG_EXT_LEGACY and (SAFE_BOX / f"{p.stem}{BAG_EXT}").is_file():
+            continue
+        seen.add(p.stem)
+        yield p
 
 
 def load_json(path: Path) -> Any:
@@ -95,7 +129,7 @@ def empty_box(box_name: str, stem: str) -> dict[str, Any]:
 
 def empty_card(stem: str, seq: int) -> dict[str, Any]:
     # shot_code = bag identity (immutable pot). scene_code = production label (e60, etc.)
-    code = f"{stem}-{seq:03d}.shot"
+    code = f"{stem}-{seq:03d}{UNIT_EXT}"
     return {
         "shot_code": code,
         "scene_code": "",
@@ -115,7 +149,7 @@ def empty_card(stem: str, seq: int) -> dict[str, Any]:
 
 def list_boxes() -> list[dict[str, Any]]:
     out: list[dict[str, Any]] = []
-    for p in sorted(SAFE_BOX.glob("*.shot")):
+    for p in iter_shot_bags():
         try:
             data = load_json(p)
             out.append(
@@ -141,7 +175,7 @@ def list_boxes() -> list[dict[str, Any]]:
 
 def all_cards_index() -> list[dict[str, Any]]:
     rows: list[dict[str, Any]] = []
-    for p in sorted(SAFE_BOX.glob("*.shot")):
+    for p in iter_shot_bags():
         try:
             data = load_json(p)
         except (OSError, json.JSONDecodeError):
@@ -179,7 +213,7 @@ def rewrite_stem_in_box(data: dict[str, Any], old_stem: str, new_stem: str) -> d
 
 
 def patch_relates_across(old_stem: str, new_stem: str) -> None:
-    for p in SAFE_BOX.glob("*.shot"):
+    for p in iter_shot_bags():
         try:
             data = load_json(p)
         except (OSError, json.JSONDecodeError):
@@ -223,11 +257,12 @@ def apply_card_fields(card: dict[str, Any], body: dict[str, Any]) -> None:
 
 
 def stamp_tps_nick(card: dict[str, Any], body: dict[str, Any]) -> bool:
-    """Write tps_chip / tps_export onto card dict. Returns True if any field set."""
+    """Write tps_chip / tps_export / tps_vencodes onto card dict."""
     if body.get("tps_clear"):
-        if "tps_chip" in card or "tps_export" in card:
+        if any(k in card for k in ("tps_chip", "tps_export", "tps_vencodes")):
             card.pop("tps_chip", None)
             card.pop("tps_export", None)
+            card.pop("tps_vencodes", None)
             return True
         return False
     tps_chip = str(body.get("tps_chip") or body.get("chip_id") or "").strip()
@@ -239,6 +274,22 @@ def stamp_tps_nick(card: dict[str, Any], body: dict[str, Any]) -> bool:
     if tps_export:
         card["tps_export"] = tps_export
         wrote = True
+    if isinstance(body.get("tps_vencodes"), list) and body["tps_vencodes"]:
+        codes: list[str] = []
+        seen: set[str] = set()
+        for v in body["tps_vencodes"]:
+            if isinstance(v, str):
+                c = v.strip()
+            elif isinstance(v, dict):
+                c = str(v.get("code") or v.get("ven") or "").strip()
+            else:
+                c = ""
+            if c and c not in seen:
+                seen.add(c)
+                codes.append(c)
+        if codes:
+            card["tps_vencodes"] = codes
+            wrote = True
     return wrote
 
 
@@ -255,23 +306,28 @@ def find_card(data: dict[str, Any], code: str) -> dict[str, Any] | None:
 
 
 def persist_card_tps(
-    stem: str, code: str, tps_chip: str, tps_export: str = ""
+    stem: str,
+    code: str,
+    tps_chip: str,
+    tps_export: str = "",
+    tps_vencodes: list | None = None,
 ) -> dict[str, Any]:
-    """Atomic nick write to safe_box/*.shot. Always flush to disk when chip set."""
+    """Atomic TPS nick write (chip + optional vencodes) to safe_box/*.shotbox."""
     stem = re.sub(r"[^\w\-]+", "", stem)
-    p = shot_path(stem)
+    p = resolve_shot_path(stem)
     if not p.exists():
         raise FileNotFoundError(str(p))
     data = load_json(p)
     found = find_card(data, code)
     if not found:
         raise KeyError(unquote(code or ""))
-    body = {"tps_chip": tps_chip, "tps_export": tps_export or ""}
+    body: dict[str, Any] = {"tps_chip": tps_chip, "tps_export": tps_export or ""}
+    if isinstance(tps_vencodes, list) and tps_vencodes:
+        body["tps_vencodes"] = tps_vencodes
     if not str(tps_chip or "").strip():
         raise ValueError("tps_chip required")
     stamp_tps_nick(found, body)
     save_json(p, data)
-    # Reload from disk so response is ground truth
     data = load_json(p)
     found = find_card(data, code) or found
     return {
@@ -280,6 +336,7 @@ def persist_card_tps(
         "path": str(p.resolve()),
         "tps_chip": found.get("tps_chip"),
         "tps_export": found.get("tps_export"),
+        "tps_vencodes": found.get("tps_vencodes") or [],
     }
 
 
@@ -345,7 +402,7 @@ class Handler(SimpleHTTPRequestHandler):
             return self._send(200, {"stem": stem_type_a(name)})
         if path.startswith("/api/box/"):
             stem = re.sub(r"[^\w\-]+", "", path[len("/api/box/") :])
-            p = shot_path(stem)
+            p = resolve_shot_path(stem)
             if not p.exists():
                 return self._send(404, {"error": "box not found", "stem": stem})
             return self._send(200, load_json(p))
@@ -364,7 +421,7 @@ class Handler(SimpleHTTPRequestHandler):
                 return self._send(400, {"error": "box_name required"})
             stem = (body.get("stem") or "").strip() or stem_type_a(box_name)
             stem = re.sub(r"[^\w\-]+", "", stem) or "X"
-            p = shot_path(stem)
+            p = resolve_shot_path(stem)
             if p.exists():
                 return self._send(409, {"error": "stem already exists", "stem": stem})
             data = empty_box(box_name, stem)
@@ -399,6 +456,9 @@ class Handler(SimpleHTTPRequestHandler):
                 stem, _, code = rest.partition("/card/")
             chip = str(body.get("tps_chip") or body.get("chip_id") or "").strip()
             exp = str(body.get("tps_export") or body.get("export_id") or "").strip()
+            vens = body.get("tps_vencodes") or body.get("vencodes")
+            if not isinstance(vens, list):
+                vens = None
             if not stem or not code:
                 return self._send(
                     400,
@@ -412,7 +472,7 @@ class Handler(SimpleHTTPRequestHandler):
             if not chip:
                 return self._send(400, {"error": "tps_chip required"})
             try:
-                out = persist_card_tps(stem, code, chip, exp)
+                out = persist_card_tps(stem, code, chip, exp, vens)
             except FileNotFoundError as e:
                 return self._send(404, {"error": "box not found", "detail": str(e)})
             except KeyError as e:
@@ -425,7 +485,7 @@ class Handler(SimpleHTTPRequestHandler):
 
         if path.startswith("/api/box/") and path.endswith("/card"):
             stem = re.sub(r"[^\w\-]+", "", path[len("/api/box/") : -len("/card")])
-            p = shot_path(stem)
+            p = resolve_shot_path(stem)
             if not p.exists():
                 return self._send(404, {"error": "box not found"})
             data = load_json(p)
@@ -433,7 +493,7 @@ class Handler(SimpleHTTPRequestHandler):
             card = empty_card(stem, seq)
             apply_card_fields(card, body)
             # store pot fixed at mint; scene_code may be set freely (e.g. e60)
-            card["shot_code"] = f"{stem}-{seq:03d}.shot"
+            card["shot_code"] = f"{stem}-{seq:03d}{UNIT_EXT}"
             stamp_tps_nick(card, body)
             data.setdefault("cards", []).append(card)
             data["next_seq"] = seq + 1
@@ -454,7 +514,7 @@ class Handler(SimpleHTTPRequestHandler):
             if "/card/" in rest:
                 stem, _, code = rest.partition("/card/")
                 stem = re.sub(r"[^\w\-]+", "", stem)
-                p = shot_path(stem)
+                p = resolve_shot_path(stem)
                 if not p.exists():
                     return self._send(404, {"error": "box not found"})
                 data = load_json(p)
@@ -466,7 +526,7 @@ class Handler(SimpleHTTPRequestHandler):
                 return self._send(200, {"box": data, "card": found})
 
             stem = re.sub(r"[^\w\-]+", "", rest)
-            p = shot_path(stem)
+            p = resolve_shot_path(stem)
             if not p.exists():
                 return self._send(404, {"error": "box not found"})
             data = load_json(p)
@@ -506,7 +566,7 @@ class Handler(SimpleHTTPRequestHandler):
             if "/card/" in rest:
                 stem, _, code = rest.partition("/card/")
                 stem = re.sub(r"[^\w\-]+", "", stem)
-                p = shot_path(stem)
+                p = resolve_shot_path(stem)
                 if not p.exists():
                     return self._send(404, {"error": "box not found"})
                 data = load_json(p)
@@ -519,7 +579,7 @@ class Handler(SimpleHTTPRequestHandler):
                 save_json(p, data)
                 return self._send(200, data)
             stem = re.sub(r"[^\w\-]+", "", rest)
-            p = shot_path(stem)
+            p = resolve_shot_path(stem)
             if not p.exists():
                 return self._send(404, {"error": "box not found"})
             p.unlink()

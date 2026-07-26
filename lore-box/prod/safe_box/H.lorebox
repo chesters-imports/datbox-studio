@@ -1,0 +1,24 @@
+{
+  "house": "DATBOX",
+  "mat": "lore",
+  "version": 1,
+  "box_name": "Hekate",
+  "stem": "H",
+  "next_seq": 10,
+  "cards": [
+    {
+      "lore_code": "H-009.lore",
+      "lore_core": "H-009.lore",
+      "headliner": "",
+      "slugline": "",
+      "prime_lore": "",
+      "gravity": 0,
+      "relates": [],
+      "tps_chip": "001-OT-008.3.0",
+      "tps_export": "001-OT-008.3",
+      "tps_vencodes": [
+        "MOM-101"
+      ]
+    }
+  ]
+}

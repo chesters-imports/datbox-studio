@@ -2,7 +2,7 @@
 """
 loreBOX desk server — first pass.
 Serves the inner app and reads/writes only:
-  ../safe_box/*.lore
+  ../safe_box/*.lorebox (legacy *.lore accepted and renamed)
   ../box_sets/*
 """
 
@@ -58,11 +58,32 @@ def stem_type_a(name: str) -> str:
     return "".join(parts) or "X"
 
 
+BAG_EXT = ".lorebox"  # the box of {stem}'s
+BAG_EXT_LEGACY = ".lore"
+UNIT_EXT = ".lore"  # unit code ending (card kind)
+
+
 def lore_path(stem: str) -> Path:
+    """Canonical bag path: {stem}.lorebox"""
     safe = re.sub(r"[^\w\-]+", "", stem, flags=re.UNICODE)
     if not safe:
         raise ValueError("empty stem")
-    return SAFE_BOX / f"{safe}.lore"
+    return SAFE_BOX / f"{safe}{BAG_EXT}"
+
+
+def resolve_lore_path(stem: str) -> Path:
+    """Prefer .lorebox; migrate legacy .lore → .lorebox on first touch."""
+    canonical = lore_path(stem)
+    if canonical.is_file():
+        return canonical
+    legacy = SAFE_BOX / f"{canonical.stem}{BAG_EXT_LEGACY}"
+    if legacy.is_file():
+        try:
+            legacy.rename(canonical)
+        except OSError:
+            return legacy
+        return canonical
+    return canonical
 
 
 def load_json(path: Path) -> Any:
@@ -92,7 +113,11 @@ def empty_box(box_name: str, stem: str) -> dict[str, Any]:
 
 def list_boxes() -> list[dict[str, Any]]:
     out: list[dict[str, Any]] = []
-    for p in sorted(SAFE_BOX.glob("*.lore")):
+    for p in sorted(list(SAFE_BOX.glob(f"*{BAG_EXT}")) + list(SAFE_BOX.glob(f"*{BAG_EXT_LEGACY}"))):
+        if p.suffix == BAG_EXT_LEGACY and (SAFE_BOX / f"{p.stem}{BAG_EXT}").is_file():
+            continue  # prefer canonical if both exist
+        # normalize listing stem from either extension
+
         try:
             data = load_json(p)
             out.append(
@@ -119,7 +144,11 @@ def list_boxes() -> list[dict[str, Any]]:
 def all_cards_index() -> list[dict[str, Any]]:
     """Cross-box catalog for RELATE picker."""
     rows: list[dict[str, Any]] = []
-    for p in sorted(SAFE_BOX.glob("*.lore")):
+    for p in sorted(list(SAFE_BOX.glob(f"*{BAG_EXT}")) + list(SAFE_BOX.glob(f"*{BAG_EXT_LEGACY}"))):
+        if p.suffix == BAG_EXT_LEGACY and (SAFE_BOX / f"{p.stem}{BAG_EXT}").is_file():
+            continue  # prefer canonical if both exist
+        # normalize listing stem from either extension
+
         try:
             data = load_json(p)
         except (OSError, json.JSONDecodeError):
@@ -143,21 +172,26 @@ def rewrite_stem_in_box(data: dict[str, Any], old_stem: str, new_stem: str) -> d
     data["stem"] = new_stem
     for card in data.get("cards") or []:
         code = card.get("lore_code") or card.get("lore_core") or ""
-        m = re.match(rf"^{re.escape(old_stem)}-(\d+)\.frag$", code)
+        # unit suffix = box kind (.lore); accept legacy .frag when rewriting
+        m = re.match(
+            rf"^{re.escape(old_stem)}-(\d+)\.(?:lore|frag)$", code
+        )
         if m:
-            new_code = f"{new_stem}-{m.group(1)}.frag"
+            new_code = f"{new_stem}-{m.group(1)}.lore"
             card["lore_code"] = new_code
             card["lore_core"] = new_code
         for rel in card.get("relates") or []:
             t = rel.get("to") or ""
-            m2 = re.match(rf"^{re.escape(old_stem)}-(\d+)\.frag$", t)
+            m2 = re.match(
+                rf"^{re.escape(old_stem)}-(\d+)\.(?:lore|frag)$", t
+            )
             if m2:
-                rel["to"] = f"{new_stem}-{m2.group(1)}.frag"
+                rel["to"] = f"{new_stem}-{m2.group(1)}.lore"
     return data
 
 
 def patch_relates_across_safe_box(old_stem: str, new_stem: str) -> None:
-    for p in SAFE_BOX.glob("*.lore"):
+    for p in list(SAFE_BOX.glob(f"*{BAG_EXT}")) + list(SAFE_BOX.glob(f"*{BAG_EXT_LEGACY}")):
         try:
             data = load_json(p)
         except (OSError, json.JSONDecodeError):
@@ -166,9 +200,11 @@ def patch_relates_across_safe_box(old_stem: str, new_stem: str) -> None:
         for card in data.get("cards") or []:
             for rel in card.get("relates") or []:
                 t = rel.get("to") or ""
-                m = re.match(rf"^{re.escape(old_stem)}-(\d+)\.frag$", t)
+                m = re.match(
+                    rf"^{re.escape(old_stem)}-(\d+)\.(?:lore|frag)$", t
+                )
                 if m:
-                    rel["to"] = f"{new_stem}-{m.group(1)}.frag"
+                    rel["to"] = f"{new_stem}-{m.group(1)}.lore"
                     changed = True
         if changed:
             save_json(p, data)
@@ -225,7 +261,7 @@ class Handler(SimpleHTTPRequestHandler):
         if path.startswith("/api/box/"):
             stem = path[len("/api/box/") :]
             stem = re.sub(r"[^\w\-]+", "", stem)
-            p = lore_path(stem)
+            p = resolve_lore_path(stem)
             if not p.exists():
                 return self._send(404, {"error": "box not found", "stem": stem})
             return self._send(200, load_json(p))
@@ -246,7 +282,7 @@ class Handler(SimpleHTTPRequestHandler):
                 return self._send(400, {"error": "box_name required"})
             stem = (body.get("stem") or "").strip() or stem_type_a(box_name)
             stem = re.sub(r"[^\w\-]+", "", stem) or "X"
-            p = lore_path(stem)
+            p = resolve_lore_path(stem)
             if p.exists():
                 return self._send(409, {"error": "stem already exists", "stem": stem})
             data = empty_box(box_name, stem)
@@ -267,12 +303,13 @@ class Handler(SimpleHTTPRequestHandler):
         if path.startswith("/api/box/") and path.endswith("/card"):
             stem = path[len("/api/box/") : -len("/card")]
             stem = re.sub(r"[^\w\-]+", "", stem)
-            p = lore_path(stem)
+            p = resolve_lore_path(stem)
             if not p.exists():
                 return self._send(404, {"error": "box not found"})
             data = load_json(p)
             seq = int(data.get("next_seq") or 1)
-            code = f"{stem}-{seq:03d}.frag"
+            # unit ending = card kind (.lore); bag file is .lorebox
+            code = f"{stem}-{seq:03d}{UNIT_EXT}"
             card = {
                 "lore_code": code,
                 "lore_core": code,
@@ -289,6 +326,21 @@ class Handler(SimpleHTTPRequestHandler):
                 card["tps_chip"] = tps_chip
             if tps_export:
                 card["tps_export"] = tps_export
+            if isinstance(body.get("tps_vencodes"), list) and body["tps_vencodes"]:
+                codes = []
+                seen = set()
+                for v in body["tps_vencodes"]:
+                    if isinstance(v, str):
+                        c = v.strip()
+                    elif isinstance(v, dict):
+                        c = str(v.get("code") or "").strip()
+                    else:
+                        c = ""
+                    if c and c not in seen:
+                        seen.add(c)
+                        codes.append(c)
+                if codes:
+                    card["tps_vencodes"] = codes
             data.setdefault("cards", []).append(card)
             data["next_seq"] = seq + 1
             save_json(p, data)
@@ -310,7 +362,7 @@ class Handler(SimpleHTTPRequestHandler):
             if "/card/" in rest:
                 stem, _, code = rest.partition("/card/")
                 stem = re.sub(r"[^\w\-]+", "", stem)
-                p = lore_path(stem)
+                p = resolve_lore_path(stem)
                 if not p.exists():
                     return self._send(404, {"error": "box not found"})
                 data = load_json(p)
@@ -332,9 +384,25 @@ class Handler(SimpleHTTPRequestHandler):
                     found["tps_chip"] = tps_chip
                 if tps_export:
                     found["tps_export"] = tps_export
+                if isinstance(body.get("tps_vencodes"), list) and body["tps_vencodes"]:
+                    codes = []
+                    seen = set()
+                    for v in body["tps_vencodes"]:
+                        if isinstance(v, str):
+                            c = v.strip()
+                        elif isinstance(v, dict):
+                            c = str(v.get("code") or "").strip()
+                        else:
+                            c = ""
+                        if c and c not in seen:
+                            seen.add(c)
+                            codes.append(c)
+                    if codes:
+                        found["tps_vencodes"] = codes
                 if body.get("tps_clear"):
                     found.pop("tps_chip", None)
                     found.pop("tps_export", None)
+                    found.pop("tps_vencodes", None)
                 if "prime_lore" in body:
                     found["prime_lore"] = str(body.get("prime_lore") or "")
                 if "gravity" in body:
@@ -346,7 +414,7 @@ class Handler(SimpleHTTPRequestHandler):
                 return self._send(200, {"box": data, "card": found})
 
             stem = re.sub(r"[^\w\-]+", "", rest)
-            p = lore_path(stem)
+            p = resolve_lore_path(stem)
             if not p.exists():
                 return self._send(404, {"error": "box not found"})
             data = load_json(p)
@@ -395,7 +463,7 @@ class Handler(SimpleHTTPRequestHandler):
             if "/card/" in rest:
                 stem, _, code = rest.partition("/card/")
                 stem = re.sub(r"[^\w\-]+", "", stem)
-                p = lore_path(stem)
+                p = resolve_lore_path(stem)
                 if not p.exists():
                     return self._send(404, {"error": "box not found"})
                 data = load_json(p)
@@ -411,7 +479,7 @@ class Handler(SimpleHTTPRequestHandler):
                 return self._send(200, data)
 
             stem = re.sub(r"[^\w\-]+", "", rest)
-            p = lore_path(stem)
+            p = resolve_lore_path(stem)
             if not p.exists():
                 return self._send(404, {"error": "box not found"})
             p.unlink()

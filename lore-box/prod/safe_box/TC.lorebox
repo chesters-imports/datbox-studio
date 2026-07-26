@@ -7,8 +7,8 @@
   "next_seq": 8,
   "cards": [
     {
-      "lore_code": "TC-001.frag",
-      "lore_core": "TC-001.frag",
+      "lore_code": "TC-001.lore",
+      "lore_core": "TC-001.lore",
       "headliner": "What is The City?",
       "slugline": "A description of the city itself",
       "prime_lore": "The City is a interior based world scape built inside of a machine or natural exoplanet.",
@@ -16,8 +16,8 @@
       "relates": []
     },
     {
-      "lore_code": "TC-002.frag",
-      "lore_core": "TC-002.frag",
+      "lore_code": "TC-002.lore",
+      "lore_core": "TC-002.lore",
       "headliner": "Parts of the City",
       "slugline": "The city is: The Wires, The Surface, The Skyline",
       "prime_lore": "The City contains 3 levels:\nThe Wires - the underground material that keeps the exoplanet machine running\nThe Surface - the common space where most people live\nThe Skyline - the upper realm, not outside of the City, but resting above it",
@@ -25,8 +25,8 @@
       "relates": []
     },
     {
-      "lore_code": "TC-003.frag",
-      "lore_core": "TC-003.frag",
+      "lore_code": "TC-003.lore",
+      "lore_core": "TC-003.lore",
       "headliner": "Types of Citizens",
       "slugline": "Born as: Labor or Chosen",
       "prime_lore": "At birth, all citizens are a labor unless they were RNG selected and born into Chosen lines. Labors work to maintain the system and to keep the world running for the Chosen.",
@@ -34,8 +34,8 @@
       "relates": []
     },
     {
-      "lore_code": "TC-004.frag",
-      "lore_core": "TC-004.frag",
+      "lore_code": "TC-004.lore",
+      "lore_core": "TC-004.lore",
       "headliner": "Citizen Type: Labors",
       "slugline": "A Labor is born to maintain the system for the Chosen",
       "prime_lore": "Most everyone is born a Labor. Labors are assigned work paths at birth. You may become a Chosen by completing the Master Work of your life path.",
@@ -43,8 +43,8 @@
       "relates": []
     },
     {
-      "lore_code": "TC-005.frag",
-      "lore_core": "TC-005.frag",
+      "lore_code": "TC-005.lore",
+      "lore_core": "TC-005.lore",
       "headliner": "Citizen Type: Chosen",
       "slugline": "The Chosen do not have to labor, they get to be influence",
       "prime_lore": "Chosen do not have the burden of assigned work or the requirement of master work, so they are allowed to spend their life enjoying the fruits of the machine.",
@@ -52,8 +52,8 @@
       "relates": []
     },
     {
-      "lore_code": "TC-006.frag",
-      "lore_core": "TC-006.frag",
+      "lore_code": "TC-006.lore",
+      "lore_core": "TC-006.lore",
       "headliner": "Citizen Type: Tinker",
       "slugline": "A Broken Labor Still Can Tinker!",
       "prime_lore": "When a labor will not do its work correctly, we do not panic. Most failed labors make wonderful Tinkers! A tinker is a failed-Labor who was able to be retrained in The Doctrine and became adept at modifying the Machine, helping to install new patches and repair breaking ancient fractures,",
@@ -61,8 +61,8 @@
       "relates": []
     },
     {
-      "lore_code": "TC-007.frag",
-      "lore_core": "TC-007.frag",
+      "lore_code": "TC-007.lore",
+      "lore_core": "TC-007.lore",
       "headliner": "Citizen: Blasphemy",
       "slugline": "If you can't even be a tinker, that.. thats a Blasphemy.",
       "prime_lore": "Sometimes, even tinkering isn't enough. When a labor cannot even Tinker, they become a Blasphemy. Blasphemies do not fit in the system. Continued Blasphemous behavior can and will lead to being Voided.",

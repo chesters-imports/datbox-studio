@@ -7,8 +7,8 @@
   "next_seq": 3,
   "cards": [
     {
-      "lore_code": "CI13-001.frag",
-      "lore_core": "CI13-001.frag",
+      "lore_code": "CI13-001.lore",
+      "lore_core": "CI13-001.lore",
       "headliner": "Chester Imports (again)",
       "slugline": "Chester's 13th attempt to import the materials",
       "prime_lore": "This time around the recursion, Chester has set up his Import Shop as a strange github hosting progressively stranger toys and tools that seem to only matter to the person who will use them.",
@@ -16,15 +16,15 @@
       "relates": []
     },
     {
-      "lore_code": "CI13-002.frag",
-      "lore_core": "CI13-002.frag",
+      "lore_code": "CI13-002.lore",
+      "lore_core": "CI13-002.lore",
       "headliner": "A 12 Recurrence",
       "slugline": "Round 12 obsessed over Sam, but KC is the Veil now",
       "prime_lore": "Every time Chester ships the imports, he always sends them to Sam. But Sam has failed him, time and time again. This time, Chester's going straight to KC.",
       "gravity": 0,
       "relates": [
         {
-          "to": "CI13-001.frag",
+          "to": "CI13-001.lore",
           "type": "Relates to"
         }
       ]

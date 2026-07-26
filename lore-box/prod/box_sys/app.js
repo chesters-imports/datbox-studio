@@ -74,16 +74,31 @@ function updateCardModeButtons() {
   }
 }
 
+function venCodesOnly(list) {
+  if (!list || !list.length) return [];
+  const out = [];
+  const seen = {};
+  for (const v of list) {
+    const c =
+      typeof v === "string"
+        ? v.trim()
+        : String((v && (v.code || v.ven || "")) || "").trim();
+    if (c && !seen[c]) {
+      seen[c] = true;
+      out.push(c);
+    }
+  }
+  return out;
+}
+
 function fillTpsNick() {
   const chip = (state.card && state.card.tps_chip) || "";
   const exp = (state.card && state.card.tps_export) || "";
-  const label = chip
-    ? exp && exp !== chip
-      ? `${chip}`
-      : chip
-    : "";
+  const venText = venCodesOnly(state.card && state.card.tps_vencodes).join(" · ");
   const title = chip
-    ? `Time Machina · ${chip}${exp ? " · " + exp : ""}`
+    ? `Time Machina · ${chip}${exp ? " · " + exp : ""}${
+        venText ? " · ven " + venText : ""
+      }`
     : "";
   for (const [lineId, valId] of [
     ["f-tps-line", "f-tps"],
@@ -92,10 +107,27 @@ function fillTpsNick() {
     const line = document.getElementById(lineId);
     const val = document.getElementById(valId);
     if (!line || !val) continue;
-    if (label) {
+    if (chip) {
       line.hidden = false;
-      val.textContent = label;
+      val.textContent = chip;
       val.title = title;
+    } else {
+      line.hidden = true;
+      val.textContent = "—";
+      val.title = "";
+    }
+  }
+  for (const [lineId, valId] of [
+    ["f-ven-line", "f-ven"],
+    ["v-ven-line", "v-ven"],
+  ]) {
+    const line = document.getElementById(lineId);
+    const val = document.getElementById(valId);
+    if (!line || !val) continue;
+    if (venText) {
+      line.hidden = false;
+      val.textContent = venText;
+      val.title = "VEN codes present on TPS chip when minted (codes only)";
     } else {
       line.hidden = true;
       val.textContent = "—";
@@ -193,7 +225,7 @@ async function restoreSession() {
       state.railCollapsed = s.railCollapsed;
       applyRailDom();
     }
-    setStatus(`Restored ${data.stem}.lore`);
+    setStatus(`Restored ${data.stem}.lorebox`);
     return true;
   } catch (e) {
     setStatus("Could not restore last box (missing?)", true);
@@ -283,7 +315,7 @@ async function openBox(stem) {
   clearEditorFields();
   renderAll();
   persistSession();
-  setStatus(`Opened ${data.stem}.lore · ${data.box_name}`);
+  setStatus(`Opened ${data.stem}.lorebox · ${data.box_name}`);
 }
 
 /* ---------- render ---------- */
@@ -311,7 +343,7 @@ function renderMainPane() {
 
   $("#meta-box-name").textContent = state.box.box_name || "—";
   $("#meta-stem").textContent = state.box.stem || "—";
-  $("#chrome-meta").textContent = `DATBOX Loaded [ ${state.box.stem}.lore | ${state.box.box_name} ]`;
+  $("#chrome-meta").textContent = `DATBOX Loaded [ ${state.box.stem}.lorebox | ${state.box.box_name} ]`;
 }
 
 function renderBoxList() {
@@ -328,7 +360,7 @@ function renderBoxList() {
     btn.className =
       "list-item" + (state.box && state.box.stem === b.stem ? " active" : "");
     btn.innerHTML = `<span>${escapeHtml(b.box_name)}</span>
-      <span class="sub">${escapeHtml(b.stem)}.lore · ${b.card_count} card(s)</span>`;
+      <span class="sub">${escapeHtml(b.stem)}.lorebox · ${b.card_count} card(s)</span>`;
     btn.addEventListener("click", () => openBox(b.stem));
     body.appendChild(btn);
   }
@@ -525,19 +557,24 @@ async function saveCard() {
         prime_lore: state.card.prime_lore,
         gravity: state.card.gravity,
         relates: state.card.relates || [],
-        // only re-assert nick when present (empty string used to erase it)
         ...(state.card.tps_chip ? { tps_chip: state.card.tps_chip } : {}),
         ...(state.card.tps_export ? { tps_export: state.card.tps_export } : {}),
+        ...(venCodesOnly(state.card.tps_vencodes).length
+          ? { tps_vencodes: venCodesOnly(state.card.tps_vencodes) }
+          : {}),
       }),
     }
   );
   state.box = data.box;
-  // Preserve nick if server response omitted it
   const keptChip = state.card.tps_chip;
   const keptExp = state.card.tps_export;
+  const keptVen = venCodesOnly(state.card.tps_vencodes);
   state.card = data.card;
   if (keptChip && !state.card.tps_chip) state.card.tps_chip = keptChip;
   if (keptExp && !state.card.tps_export) state.card.tps_export = keptExp;
+  if (keptVen.length && !venCodesOnly(state.card.tps_vencodes).length) {
+    state.card.tps_vencodes = keptVen;
+  }
   markDirty(false);
   setCardMode("view");
   await refreshBoxes();
@@ -693,7 +730,7 @@ async function newBox() {
         name: "stem",
         label: "Stem (TYPE A)",
         value: "",
-        hint: "Auto from name — edit if needed. File will be {STEM}.lore",
+        hint: "Auto from name — edit if needed. File will be {STEM}.lorebox",
       },
     ],
     onMount(inputs) {
@@ -743,7 +780,7 @@ async function newBox() {
     markDirty(false);
     clearEditorFields();
     renderAll();
-    setStatus(`Created ${data.stem}.lore`);
+    setStatus(`Created ${data.stem}.lorebox`);
   } catch (e) {
     setStatus(String(e.message || e), true);
   }
@@ -766,10 +803,13 @@ async function peekMachinaNow() {
     if (!now.current || !now.current.chip_id) {
       return { ok: false, reason: "no_chip" };
     }
+    const vencodes =
+      now.vencodes || (now.current && now.current.vencodes) || [];
     return {
       ok: true,
       chip_id: now.current.chip_id,
       export_id: now.export_id || "",
+      vencodes,
       now,
     };
   } catch {
@@ -781,11 +821,13 @@ async function whisperMatToMachina(mat, stem, peeked) {
   try {
     let chip_id = peeked && peeked.chip_id;
     let export_id = peeked && peeked.export_id;
+    let vencodes = (peeked && peeked.vencodes) || [];
     if (!chip_id) {
       const peek = await peekMachinaNow();
       if (!peek.ok) return peek;
       chip_id = peek.chip_id;
       export_id = peek.export_id;
+      vencodes = peek.vencodes || [];
     }
     const post = await fetch(`${MACHINA_CORD}/api/cord/mat`, {
       method: "POST",
@@ -798,6 +840,7 @@ async function whisperMatToMachina(mat, stem, peeked) {
         stem: stem || "",
         unit_code: mat,
         rom: "loreBOX",
+        vencodes,
       }),
     });
     const body = await post.json().catch(() => ({}));
@@ -813,6 +856,7 @@ async function whisperMatToMachina(mat, stem, peeked) {
       ok: true,
       chip_id,
       export_id: export_id || "",
+      vencodes,
       mats: body.entry && body.entry.mats,
     };
   } catch {
@@ -863,6 +907,8 @@ async function newCard() {
     if (peek.ok) {
       mintBody.tps_chip = peek.chip_id;
       mintBody.tps_export = peek.export_id || "";
+      const codes = venCodesOnly(peek.vencodes);
+      if (codes.length) mintBody.tps_vencodes = codes;
     }
 
     // 2) Create card (tps fields already on disk if peek ok).
@@ -884,33 +930,94 @@ async function newCard() {
 
     // 3) Register mat on the book (uses current Machina cursor — same peek when possible).
     if (peek.ok) {
+      let cord = peek;
+      try {
+        const again = await peekMachinaNow();
+        if (again.ok) {
+          cord = {
+            ...peek,
+            ...again,
+            vencodes:
+              again.vencodes && again.vencodes.length
+                ? again.vencodes
+                : peek.vencodes || [],
+          };
+        }
+      } catch {
+        /* use first peek */
+      }
+      const venCodes = venCodesOnly(cord.vencodes);
+
       const w = await whisperMatToMachina(
         data.card.lore_code,
         state.box.stem,
-        peek
+        cord
       );
-      // Re-assert nick on card from peek (create already wrote it; keep UI + state tight)
-      if (state.card) {
-        state.card.tps_chip = peek.chip_id;
-        state.card.tps_export = peek.export_id || "";
+
+      // Force TPS + VEN Chip onto disk (PUT stamp — lore has no /api/tps)
+      try {
+        const stamped = await api(
+          `/api/box/${encodeURIComponent(state.box.stem)}/card/${encodeURIComponent(
+            data.card.lore_code
+          )}`,
+          {
+            method: "PUT",
+            body: JSON.stringify({
+              headliner: state.card.headliner || "",
+              slugline: state.card.slugline || "",
+              prime_lore: state.card.prime_lore || "",
+              gravity: state.card.gravity || 0,
+              relates: state.card.relates || [],
+              tps_chip: cord.chip_id || peek.chip_id,
+              tps_export: cord.export_id || peek.export_id || "",
+              ...(venCodes.length ? { tps_vencodes: venCodes } : {}),
+            }),
+          }
+        );
+        if (stamped && stamped.card) {
+          state.box = stamped.box || state.box;
+          state.card = {
+            ...state.card,
+            ...stamped.card,
+            tps_chip: stamped.card.tps_chip || cord.chip_id || peek.chip_id,
+            tps_export:
+              stamped.card.tps_export || cord.export_id || peek.export_id || "",
+            tps_vencodes: venCodesOnly(
+              stamped.card.tps_vencodes || venCodes
+            ),
+          };
+        }
+      } catch {
+        /* create may already have nick */
       }
-      // Also patch box in-memory cards so list/catalog don't drop nick
+
+      if (state.card) {
+        state.card.tps_chip = state.card.tps_chip || cord.chip_id || peek.chip_id;
+        state.card.tps_export =
+          state.card.tps_export || cord.export_id || peek.export_id || "";
+        if (venCodes.length) state.card.tps_vencodes = venCodes;
+      }
       if (state.box && state.box.cards) {
         const row = state.box.cards.find(
           (c) => c.lore_code === data.card.lore_code
         );
         if (row) {
-          row.tps_chip = peek.chip_id;
-          row.tps_export = peek.export_id || "";
+          row.tps_chip = state.card.tps_chip;
+          row.tps_export = state.card.tps_export;
+          if (venCodes.length) row.tps_vencodes = venCodes;
         }
       }
       fillTpsNick();
       renderEditor();
+      const venN = venCodes.length;
       if (w.ok) {
-        setStatus(`Minted ${data.card.lore_code} · bound ${peek.chip_id}`);
+        setStatus(
+          `Minted ${data.card.lore_code} · bound ${cord.chip_id || peek.chip_id}` +
+            (venN ? ` · ${venN} ven` : " · 0 ven on chip")
+        );
       } else {
         setStatus(
-          `Minted ${data.card.lore_code} · chip ${peek.chip_id} (book whisper: ${w.reason || "fail"})`
+          `Minted ${data.card.lore_code} · chip ${cord.chip_id || peek.chip_id} (book whisper: ${w.reason || "fail"})`
         );
       }
     } else if (peek.reason === "offline" || peek.reason === "machina_http") {
@@ -930,7 +1037,7 @@ async function newCard() {
 
 async function deleteBox() {
   if (!state.box) return;
-  if (!confirm(`Hard delete ${state.box.stem}.lore and all cards?`)) return;
+  if (!confirm(`Hard delete ${state.box.stem}.lorebox and all cards?`)) return;
   try {
     await api(`/api/box/${encodeURIComponent(state.box.stem)}`, {
       method: "DELETE",
@@ -994,7 +1101,7 @@ async function renameBox() {
         name: "stem",
         label: "Stem",
         value: state.box.stem || "",
-        hint: "Changing stem rewrites codes and the .lore filename.",
+        hint: "Changing stem rewrites codes and the .lorebox filename.",
       },
     ],
   });
@@ -1017,7 +1124,7 @@ async function renameBox() {
     await refreshBoxes();
     await refreshCatalog();
     renderAll();
-    setStatus(`Renamed → ${data.stem}.lore`);
+    setStatus(`Renamed → ${data.stem}.lorebox`);
   } catch (e) {
     setStatus(String(e.message || e), true);
   }

@@ -1,0 +1,50 @@
+{
+  "house": "DATBOX",
+  "mat": "shot",
+  "version": 1,
+  "box_name": "TESTBOX",
+  "stem": "TEST",
+  "next_seq": 7,
+  "cards": [
+    {
+      "shot_code": "TEST-004.shot",
+      "scene_code": "",
+      "title": "",
+      "raw_prose": "",
+      "shotslug": "",
+      "visual": "",
+      "action": "",
+      "dialogue": "",
+      "transition": "",
+      "amusement": "",
+      "tone_tags": "",
+      "relates": [],
+      "gravity": 0,
+      "tps_chip": "001-OT-008.1.3",
+      "tps_export": "001-OT-008.1"
+    },
+    {
+      "shot_code": "TEST-005.shot",
+      "scene_code": "",
+      "title": "",
+      "raw_prose": "",
+      "shotslug": "",
+      "visual": "",
+      "action": "",
+      "dialogue": "",
+      "transition": "",
+      "amusement": "",
+      "tone_tags": "",
+      "relates": [],
+      "gravity": 0,
+      "tps_chip": "001-OT-008.4.5",
+      "tps_export": "001-OT-008.4",
+      "tps_vencodes": [
+        {
+          "code": "THE-000",
+          "alias": "The Inner Child"
+        }
+      ]
+    }
+  ]
+}

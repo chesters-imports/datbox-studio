@@ -38,6 +38,8 @@ def main() -> int:
 
     # Spawn as real argv (no cmd.exe) so host kill only hits this ROM's server
     server_cmd = f"{sys.executable} server.py"
+    # datbox profile only — do not poison default desk size for other ROMs
+    profile = os.environ.get("DECK_HOST_PROFILE", "datbox").strip() or "datbox"
     cmd = [
         sys.executable,
         str(DECK_HOST_PY),
@@ -47,6 +49,8 @@ def main() -> int:
         URL,
         "--health",
         HEALTH,
+        "--profile",
+        profile,
         "--spawn",
         server_cmd,
         "--spawn-cwd",
@@ -56,6 +60,7 @@ def main() -> int:
     print(f"  ROM server: {BOX_SYS}")
     print(f"  host:       {DECK_HOST_PY}")
     print(f"  url:        {URL}")
+    print(f"  profile:    {profile}")
     # Inherit console so first-run errors are visible; use pythonw/bat for quiet
     return subprocess.call(cmd)
 

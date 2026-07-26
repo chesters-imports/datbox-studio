@@ -1,0 +1,19 @@
+{
+  "house": "DATBOX",
+  "mat": "lore",
+  "version": 1,
+  "box_name": "The Bone Collector",
+  "stem": "TBC",
+  "next_seq": 2,
+  "cards": [
+    {
+      "lore_code": "TBC-001.lore",
+      "lore_core": "TBC-001.lore",
+      "headliner": "Who is the bone collector?",
+      "slugline": "I seek the infinite pieces of the original ADM for recomposition",
+      "prime_lore": "A bone collector who searches for the bones of Adam Kadmon",
+      "gravity": 0,
+      "relates": []
+    }
+  ]
+}

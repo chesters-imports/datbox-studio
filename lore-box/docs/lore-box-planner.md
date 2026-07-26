@@ -22,7 +22,7 @@ V0.1 2026-07-24 GAIA CHESTER_IMPORT_STATION x
 > 5. RELATE TO  - The ability to affix lore to this lore.
 > 
 > Each unit of LORE should be recorded with a LORE-CODE. 
-> EXAMPLE LORE-CODE: RO8-ROSEWOOD-001.frag
+> EXAMPLE LORE-CODE: RO8-ROSEWOOD-001.lore
 
 #Assigned-to-Wires **WIRE_SIGN_IN:** `ORIEL-WIRE Â· desk 3 Â· DatBox Studio`
 
@@ -58,7 +58,7 @@ V0.1 2026-07-24 GAIA CHESTER_IMPORT_STATION x
 >
 > | Piece | Rule | Example |
 > |-------|------|---------|
-> | Pattern | `{BOX-SLUGCODE}-{###}.frag` | `RO8-ROSEWOOD-001.frag` |
+> | Pattern | `{BOX-SLUGCODE}-{###}.lore` | `RO8-ROSEWOOD-001.lore` |
 > | `###` | Auto sequence inside that box | `001`, `002`, â€¦ |
 > | LORE CORE field | **AUTO-SET** to this LORE-CODE | not hand-typed as identity |
 >
@@ -239,7 +239,7 @@ V0.1 2026-07-24 GAIA CHESTER_IMPORT_STATION x
 > | Rosewood 8 | `R8` Â· `R8-` |
 >
 > - **Save file:** `{STEM}.lore` in safe_box (e.g. `KC1.lore`).  
-> - **LORE-CODE:** `{STEM}-{###}.frag` (e.g. `KC1-001.frag`).  
+> - **LORE-CODE:** `{STEM}-{###}.lore` (e.g. `KC1-001.lore`). Unit ending matches bag kind.  
 > - **LORE CORE:** AUTO-SET to LORE-CODE.  
 > - **Rename** later allowed (recompute/rewrite codes + file + RELATE pointers in safe_box).  
 > - **Unique:** stem must not collide in safe_box.

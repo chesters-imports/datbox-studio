@@ -1,0 +1,25 @@
+{
+  "house": "DATBOX",
+  "mat": "shot",
+  "version": 1,
+  "box_name": "The Voided Girl",
+  "stem": "TVG",
+  "next_seq": 2,
+  "cards": [
+    {
+      "shot_code": "TVG-001.shot",
+      "scene_code": "a01",
+      "title": "A Good Morning Void",
+      "raw_prose": "A young, happy girl, saying hello to everyone. Seems normal until she enters a VOID SHOP. She sits down in the chair. \"back again so soon?\" \"Well you can't be too sure\" \"alright, you know they say this many times voided ain't good for you?\" The woman nods. \"Its still the safest option.\" The service worker nods back. A screen descends around the girls face, and a bright red light turns on. In the background, you can hear the worker faintly:\n\n\"We have to tell someone. This isn't working.\"",
+      "shotslug": "",
+      "visual": "",
+      "action": "",
+      "dialogue": "\"back again so soon?\" \n\"Well you can't be too sure\"\n\"alright, you know they say this many times voided ain't good for you?\" \nThe woman nods. \"Its still the safest option.\"\n\nQuietly, concerned: \"We have to tell someone. This isn't working.\" ",
+      "transition": "",
+      "amusement": "",
+      "tone_tags": "",
+      "relates": [],
+      "gravity": 0
+    }
+  ]
+}

@@ -24,6 +24,7 @@ def main() -> int:
         return 1
     # Real argv to host — loreBOX on :42929, shotBOX on :43001 (do not share servers)
     server_cmd = f"{sys.executable} server.py"
+    profile = os.environ.get("DECK_HOST_PROFILE", "datbox").strip() or "datbox"
     cmd = [
         sys.executable,
         str(DECK_HOST_PY),
@@ -33,6 +34,8 @@ def main() -> int:
         URL,
         "--health",
         HEALTH,
+        "--profile",
+        profile,
         "--spawn",
         server_cmd,
         "--spawn-cwd",
@@ -40,6 +43,7 @@ def main() -> int:
     ]
     print("shotBOX · The Deck Host")
     print(f"  url: {URL}")
+    print(f"  profile: {profile}")
     return subprocess.call(cmd)
 
 
