@@ -1,0 +1,9 @@
+{
+  "house": "DATBOX",
+  "mat": "prompt",
+  "version": 1,
+  "box_name": "Smoke Test",
+  "stem": "SMOKE",
+  "next_seq": 1,
+  "cards": []
+}

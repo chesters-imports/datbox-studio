@@ -1,0 +1,19 @@
+{
+  "house": "DATBOX",
+  "mat": "lore",
+  "version": 1,
+  "box_name": "DATBOX Studio",
+  "stem": "DATBOX",
+  "next_seq": 2,
+  "cards": [
+    {
+      "lore_code": "DATBOX-001.lore",
+      "lore_core": "DATBOX-001.lore",
+      "headliner": "Company Profile",
+      "slugline": "Who is DATBOX and what do they produce?",
+      "prime_lore": "DATBOX is a ROM producer inside ALICE_BOX. \nTheir primary product line are BOX ROMs, apps which collect dat cards into store boxes. These data materials ('datmats') are stored in .*box format according to their box type. Stored dat cards are usable materials for future projects and products, stored conveniently for easy access, control, and alteration during production.\n\n*DATBOX Studios - We have a box for dat!*",
+      "gravity": 0,
+      "relates": []
+    }
+  ]
+}

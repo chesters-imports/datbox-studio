@@ -1,0 +1,20 @@
+{
+  "version": 1,
+  "rom": "promptbox",
+  "folder_order": [],
+  "folders": {},
+  "boxes": [
+    {
+      "stem": "SMOKE",
+      "folder": ""
+    },
+    {
+      "stem": "ICPI",
+      "folder": ""
+    },
+    {
+      "stem": "JRNL",
+      "folder": ""
+    }
+  ]
+}

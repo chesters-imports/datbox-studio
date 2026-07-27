@@ -1,0 +1,75 @@
+{
+  "version": 1,
+  "rom": "lorebox",
+  "folder_order": [
+    "The-Project-Mausoleum",
+    "Prime-Boxes",
+    "Companies",
+    "Narratives",
+    "Locations"
+  ],
+  "folders": {
+    "Narratives": {
+      "id": "Narratives",
+      "name": "Narratives"
+    },
+    "Locations": {
+      "id": "Locations",
+      "name": "Locations"
+    },
+    "Companies": {
+      "id": "Companies",
+      "name": "Companies"
+    },
+    "Prime-Boxes": {
+      "id": "Prime-Boxes",
+      "name": "Prime-Boxes"
+    },
+    "The-Project-Mausoleum": {
+      "id": "The-Project-Mausoleum",
+      "name": "The-Project-Mausoleum"
+    }
+  },
+  "boxes": [
+    {
+      "stem": "BIG-BOX",
+      "folder": "Companies"
+    },
+    {
+      "stem": "CHAR-TOYS",
+      "folder": "Companies"
+    },
+    {
+      "stem": "DATBOX",
+      "folder": "Companies"
+    },
+    {
+      "stem": "CHEST13",
+      "folder": "Narratives"
+    },
+    {
+      "stem": "HOUSES",
+      "folder": "Locations"
+    },
+    {
+      "stem": "FOREST",
+      "folder": "Locations"
+    },
+    {
+      "stem": "THRESHOLD",
+      "folder": "Locations"
+    },
+    {
+      "stem": "THE-CITY",
+      "folder": "Locations"
+    },
+    {
+      "stem": "RIP-OV",
+      "folder": "The-Project-Mausoleum"
+    },
+    {
+      "stem": "WBS",
+      "folder": "Companies"
+    }
+  ]
+}

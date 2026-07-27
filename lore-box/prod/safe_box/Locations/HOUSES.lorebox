@@ -1,0 +1,19 @@
+{
+  "house": "DATBOX",
+  "mat": "lore",
+  "version": 1,
+  "box_name": "Real World Houses",
+  "stem": "HOUSES",
+  "next_seq": 3,
+  "cards": [
+    {
+      "lore_code": "HOUSES-001.lore",
+      "lore_core": "HOUSES-001.lore",
+      "headliner": "78 Case St",
+      "slugline": "The Cabin Farmhouse in the Rose of New England",
+      "prime_lore": "",
+      "gravity": 0,
+      "relates": []
+    }
+  ]
+}

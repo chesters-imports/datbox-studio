@@ -1,0 +1,28 @@
+{
+  "house": "DATBOX",
+  "mat": "lore",
+  "version": 1,
+  "box_name": "World Builder Studios",
+  "stem": "WBS",
+  "next_seq": 3,
+  "cards": [
+    {
+      "lore_code": "WBS-001.lore",
+      "lore_core": "WBS-001.lore",
+      "headliner": "Company Profile",
+      "slugline": "Who is World Builder Studios and what do they produce?",
+      "prime_lore": "WORLD BUILDER STUDIOS (WBS) is a ROM producer inside ALICE_BOX.\nThey make **world builders** — products where humans and agents inhabit a shared place (rooms, desks, wires, VENs), not bag ROMs and not industrial paper alone.\n\nFirst product: **Digital Office Spaces (DOS)** — collaborative office world builder, TUI-first; data, schedules, and chats live in place.\n\nKinship: DATBOX materials may later import as VEN / lore furniture. Big Box files the memo; WBS is where work can sit on the wire. Charlie's Toys remains personal objects.\n\nHouse path: `world-builder-studios/`. Stack, don't merge. Siblings beat corpse revival of old multiverse studios.",
+      "gravity": 0,
+      "relates": []
+    },
+    {
+      "lore_code": "WBS-002.lore",
+      "lore_core": "WBS-002.lore",
+      "headliner": "Digital Office Spaces (DOS)",
+      "slugline": "First SKU — office collab world builder",
+      "prime_lore": "**DOS** = Digital Office Spaces. Package / CLI: `dos`.\nLiving desk: `world-builder-studios/dos/` (migrated from Builds mausoleum `C:\\Builds\\dos`).\nNorth star: collaborative digital offices for humans + agents; storage of data, schedules, and chats **inside** the space; TUI-first.\nLineage: product cut of World Builder Studio kernel (VEN / instance / place / SQLite world file) — office-shaped, not general multiverse storytelling as the product face.\nNot DATBOX bags. Not Big Box sopr. Not Charlie toy.\nRun: `cd world-builder-studios/dos` · `py -3.12 -m pip install -e .` · `py -3.12 -m dos --reseed`",
+      "gravity": 0,
+      "relates": []
+    }
+  ]
+}

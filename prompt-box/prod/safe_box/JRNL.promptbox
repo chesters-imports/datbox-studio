@@ -1,0 +1,9 @@
+{
+  "house": "DATBOX",
+  "mat": "prompt",
+  "version": 1,
+  "box_name": "Journal Morning",
+  "stem": "JRNL",
+  "next_seq": 1,
+  "cards": []
+}

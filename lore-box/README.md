@@ -10,9 +10,11 @@
 | Path | Role |
 |------|------|
 | `docs/` | Product paper (planner, freezes) |
-| `prod/box_sys/` | The box program |
-| `prod/safe_box/` | `.lore` saves only |
+| `prod/box_sys/` | The box program (imports `datbox-core`) |
+| `prod/safe_box/` | `.lorebox` bags · physical folders · `_lorebox.datshelf` |
 | `prod/box_sets/` | ROM settings |
+
+**Shelf:** drag order + folder place via datbox-core (`_{rom}.datshelf`). shotBOX frozen — lore is first ROM on core.
 
 Ticket / freeze: [[lore-box-planner]]
 

@@ -1,0 +1,209 @@
+/* datbox-core · desk dialogs — shared DATBOX modal chrome */
+
+.dd-host[hidden] {
+  display: none !important;
+}
+
+.dd-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 200;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+  background: rgba(42, 53, 64, 0.32);
+}
+
+.dd-dlg {
+  width: min(420px, 100%);
+  background: #f4f6f8;
+  border: 1px solid var(--line, #c5ced6);
+  box-shadow: 0 8px 28px rgba(40, 50, 60, 0.2);
+  display: flex;
+  flex-direction: column;
+  font-family: var(--font, system-ui, "Segoe UI", sans-serif);
+  color: var(--text, #1e2830);
+}
+
+.dd-chrome {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 12px;
+  background: #e8edf2;
+  border-bottom: 1px solid var(--line, #c5ced6);
+  cursor: grab;
+  user-select: none;
+}
+
+.dd-chrome.dragging {
+  cursor: grabbing;
+}
+
+.dd-chip {
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+}
+
+.dd-title {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text, #1e2830);
+}
+
+.dd-body {
+  padding: 14px 14px 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.dd-p {
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.45;
+  color: var(--text, #1e2830);
+  white-space: pre-wrap;
+}
+
+.dd-field span,
+.dd-body .field > span {
+  display: block;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--muted, #5a6a78);
+  margin-bottom: 4px;
+}
+
+.dd-field input:not([type="checkbox"]),
+.dd-field select,
+.dd-body .field input:not([type="checkbox"]),
+.dd-body .field select {
+  width: 100%;
+  box-sizing: border-box;
+  font: inherit;
+  font-size: 13px;
+  padding: 6px 8px;
+  border: 1px solid var(--line, #c5ced6);
+  background: #fff;
+  color: var(--text, #1e2830);
+}
+
+.dd-field input.dd-check,
+.dd-field input[type="checkbox"] {
+  width: auto;
+  margin: 4px 0 0;
+}
+
+.dd-hint,
+.dlg-hint {
+  margin: 4px 0 0;
+  font-size: 11px;
+  color: var(--muted, #5a6a78);
+  line-height: 1.4;
+}
+
+.dd-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  align-items: center;
+  padding: 10px 14px 12px;
+  border-top: 1px solid var(--line, #c5ced6);
+  background: #eef1f4;
+}
+
+.dd-actions .btn {
+  font: inherit;
+  font-size: 12px;
+  padding: 6px 12px;
+  border: 1px solid var(--line, #c5ced6);
+  background: #fff;
+  color: var(--text, #1e2830);
+  cursor: pointer;
+  border-radius: 2px;
+}
+
+.dd-actions .btn.linkish {
+  border-color: transparent;
+  background: transparent;
+  text-decoration: underline;
+  color: var(--muted, #5a6a78);
+}
+
+.dd-actions .btn.cta-new {
+  background: #c5d8e8;
+  border-color: #9ab4c8;
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.dd-actions .btn.dd-btn-danger {
+  background: #e8c4c4;
+  border-color: #c09090;
+  color: #5a2020;
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.dd-actions .btn:hover {
+  filter: brightness(0.98);
+}
+
+.dd-dlg.dd-danger .dd-chrome {
+  background: #f0e4e4;
+}
+
+/* Dark twins when host app uses data-theme=dark */
+html[data-theme="dark"] .dd-dlg {
+  background: #1c222a;
+  border-color: var(--line, #3a4550);
+  color: var(--text, #e4e8ec);
+}
+
+html[data-theme="dark"] .dd-chrome {
+  background: #252b34;
+  border-color: var(--line, #3a4550);
+}
+
+html[data-theme="dark"] .dd-title,
+html[data-theme="dark"] .dd-p {
+  color: var(--text, #e4e8ec);
+}
+
+html[data-theme="dark"] .dd-actions {
+  background: #1a2028;
+  border-color: var(--line, #3a4550);
+}
+
+html[data-theme="dark"] .dd-field input:not([type="checkbox"]),
+html[data-theme="dark"] .dd-field select,
+html[data-theme="dark"] .dd-body .field input:not([type="checkbox"]),
+html[data-theme="dark"] .dd-body .field select {
+  background: #12161c;
+  border-color: var(--line, #3a4550);
+  color: var(--text, #e4e8ec);
+}
+
+html[data-theme="dark"] .dd-actions .btn {
+  background: #252b34;
+  border-color: var(--line, #3a4550);
+  color: var(--text, #e4e8ec);
+}
+
+html[data-theme="dark"] .dd-actions .btn.cta-new {
+  background: #2c3a48;
+  border-color: #4a6070;
+}
+
+html[data-theme="dark"] .dd-actions .btn.dd-btn-danger {
+  background: #4a3030;
+  border-color: #6a4040;
+  color: #f0d0d0;
+}
+
+html[data-theme="dark"] .dd-dlg.dd-danger .dd-chrome {
+  background: #3a2828;
+}

@@ -20,6 +20,8 @@ Double-click **`prod/run-shotBOX.bat`** (The Deck Host + local desk on port **43
 
 Or desk only: `cd prod\box_sys` → `python server.py` → http://127.0.0.1:43001/
 
+**Status:** online again (desk profile + `desk_prefs` window mode). Full **datbox-core** port can follow when needed; bags in `safe_box/` remain valid.
+
 Model: ICU **shotDesk** (scene construction cards). Not a lore encyclopedia — use **loreBOX** for that.
 
 ### Bags on the island

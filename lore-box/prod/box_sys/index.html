@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>loreBOX</title>
     <link rel="stylesheet" href="app.css" />
+    <link rel="stylesheet" href="/datbox-core/css/desk_dialog.css" />
   </head>
   <body>
     <div id="app">
@@ -26,17 +27,40 @@
       <div class="work">
         <!-- B14: rail column — open tab + safe box (toggle stays on rail, not header) -->
         <div class="rail-column">
-          <button type="button" class="rail-tab" id="btn-rail-open" title="Open safe box" aria-label="Open safe box" hidden>»</button>
+          <!-- collapsed strip: open tab stays top; open-deck tools when a box is loaded -->
+          <div class="rail-slim" id="rail-slim" hidden>
+            <button type="button" class="rail-tab" id="btn-rail-open" title="Open safe box" aria-label="Open safe box">»</button>
+            <button type="button" class="rail-slim-btn" id="btn-slim-rename" title="Settings / rename open deck" aria-label="Rename open deck" disabled>⚙</button>
+            <button type="button" class="rail-slim-btn danger" id="btn-slim-del" title="Delete open deck" aria-label="Delete open deck" disabled>🗑</button>
+          </div>
           <aside class="region rail" id="safe-rail" aria-label="Safe box">
             <div class="region-head">
               <span>Safe box</span>
-              <button type="button" class="btn linkish rail-close" id="btn-rail-close" title="Collapse safe box" aria-label="Collapse safe box">«</button>
+              <div class="head-actions">
+                <button type="button" class="btn linkish density-toggle" id="btn-safe-density" title="Density · comfy / compact" aria-label="Safe box density" aria-pressed="false">
+                  <!-- hairline stack · sized to match « rail close -->
+                  <svg class="density-ico density-ico-comfy" viewBox="0 0 12 12" width="10" height="10" aria-hidden="true">
+                    <rect x="1.5" y="1.75" width="9" height="1.5" rx="0.4" fill="currentColor"/>
+                    <rect x="1.5" y="5.25" width="9" height="1.5" rx="0.4" fill="currentColor" opacity="0.45"/>
+                    <rect x="1.5" y="8.75" width="9" height="1.5" rx="0.4" fill="currentColor"/>
+                  </svg>
+                  <svg class="density-ico density-ico-compact" viewBox="0 0 12 12" width="10" height="10" aria-hidden="true" hidden>
+                    <rect x="1.5" y="1.25" width="9" height="1" rx="0.3" fill="currentColor"/>
+                    <rect x="1.5" y="3.5" width="9" height="1" rx="0.3" fill="currentColor" opacity="0.55"/>
+                    <rect x="1.5" y="5.75" width="9" height="1" rx="0.3" fill="currentColor"/>
+                    <rect x="1.5" y="8" width="9" height="1" rx="0.3" fill="currentColor" opacity="0.55"/>
+                    <rect x="1.5" y="10.25" width="9" height="1" rx="0.3" fill="currentColor"/>
+                  </svg>
+                </button>
+                <button type="button" class="btn linkish rail-close" id="btn-rail-close" title="Collapse safe box" aria-label="Collapse safe box">«</button>
+              </div>
             </div>
             <div class="region-body" id="box-list"></div>
-            <div class="region-foot dock" role="toolbar" aria-label="Safe box tools">
+            <div class="region-foot dock dock-4" role="toolbar" aria-label="Safe box tools">
               <button type="button" class="btn dock-btn" id="btn-new-box" title="New box" aria-label="New box">+</button>
-              <button type="button" class="btn dock-btn" id="btn-rename" title="Rename box" aria-label="Rename box" disabled>⚙</button>
-              <button type="button" class="btn dock-btn danger" id="btn-del-box" title="Delete box" aria-label="Delete box" disabled>🗑</button>
+              <button type="button" class="btn dock-btn" id="btn-new-folder" title="New folder (physical place)" aria-label="New folder">📁</button>
+              <button type="button" class="btn dock-btn" id="btn-rename" title="Rename selected folder" aria-label="Rename folder" disabled>⚙</button>
+              <button type="button" class="btn dock-btn danger" id="btn-del-box" title="Delete selected folder" aria-label="Delete folder" disabled>🗑</button>
             </div>
           </aside>
         </div>
@@ -61,7 +85,10 @@
                 <span class="meta-k">Slug Code</span>
                 <span class="meta-v mono" id="meta-stem">—</span>
               </div>
-              <span class="meta-note">Rename via ⚙ on safe box</span>
+              <div class="deck-actions" role="group" aria-label="Deck actions">
+                <button type="button" class="btn" id="btn-rename-deck" title="Rename this deck">Rename deck…</button>
+                <button type="button" class="btn danger" id="btn-delete-deck" title="Delete this deck">Delete deck…</button>
+              </div>
             </div>
 
             <div class="main-split">
@@ -88,8 +115,33 @@
                     New card mints a LORE-CODE, or pick one from the list.
                   </div>
                   <div id="editor" class="editor" hidden>
-                    <!-- edit mode -->
+                    <!-- edit mode — identity meta quiet at top -->
                     <div id="card-edit" class="card-edit">
+                      <div class="card-id-meta" aria-label="Card identity">
+                        <div class="card-id-cell">
+                          <span class="meta-k">Lore code</span>
+                          <span class="meta-v mono" id="f-core">—</span>
+                        </div>
+                        <div class="card-id-cell" id="f-tps-line" hidden>
+                          <span class="meta-k">TPS chip</span>
+                          <span class="meta-v mono tps-chip" id="f-tps" title="Message chip from Time Machina when this mat was minted">—</span>
+                        </div>
+                        <div class="card-id-cell" id="f-ven-line" hidden>
+                          <span class="meta-k">VEN chip</span>
+                          <span class="meta-v mono tps-chip" id="f-ven" title="VEN codes present on TPS chip when minted (codes only)">—</span>
+                        </div>
+                        <div class="card-id-cell gravity-line">
+                          <span class="meta-k">Gravity</span>
+                          <select id="f-gravity">
+                            <option value="0">0 · unset</option>
+                            <option value="1">1</option>
+                            <option value="2">2</option>
+                            <option value="3">3</option>
+                            <option value="4">4</option>
+                            <option value="5">5</option>
+                          </select>
+                        </div>
+                      </div>
                       <div class="field">
                         <span>Headliner</span>
                         <input type="text" id="f-headliner" autocomplete="off" />
@@ -102,34 +154,27 @@
                         <span>Prime lore</span>
                         <textarea id="f-prime" spellcheck="true"></textarea>
                       </div>
-                      <div class="meta-lines">
-                        <div class="meta-line">
+                    </div>
+                    <!-- view mode (B13) — meta top, content below -->
+                    <div id="card-view" class="card-view" hidden>
+                      <div class="card-id-meta" aria-label="Card identity">
+                        <div class="card-id-cell">
                           <span class="meta-k">Lore code</span>
-                          <span class="meta-v mono" id="f-core">—</span>
+                          <span class="meta-v mono" id="v-core">—</span>
                         </div>
-                        <div class="meta-line" id="f-tps-line" hidden>
+                        <div class="card-id-cell" id="v-tps-line" hidden>
                           <span class="meta-k">TPS chip</span>
-                          <span class="meta-v mono tps-chip" id="f-tps" title="Message chip from Time Machina when this mat was minted">—</span>
+                          <span class="meta-v mono tps-chip" id="v-tps">—</span>
                         </div>
-                        <div class="meta-line" id="f-ven-line" hidden>
-                          <span class="meta-k">VEN Chip</span>
-                          <span class="meta-v mono tps-chip" id="f-ven" title="VEN codes present on TPS chip when minted (codes only)">—</span>
+                        <div class="card-id-cell" id="v-ven-line" hidden>
+                          <span class="meta-k">VEN chip</span>
+                          <span class="meta-v mono tps-chip" id="v-ven">—</span>
                         </div>
-                        <div class="meta-line gravity-line">
+                        <div class="card-id-cell" id="v-gravity-line">
                           <span class="meta-k">Gravity</span>
-                          <select id="f-gravity">
-                            <option value="0">0 · unset</option>
-                            <option value="1">1</option>
-                            <option value="2">2</option>
-                            <option value="3">3</option>
-                            <option value="4">4</option>
-                            <option value="5">5</option>
-                          </select>
+                          <span class="meta-v" id="v-gravity">—</span>
                         </div>
                       </div>
-                    </div>
-                    <!-- view mode (B13) -->
-                    <div id="card-view" class="card-view" hidden>
                       <div class="view-block">
                         <span class="meta-k">Headliner</span>
                         <div class="view-v" id="v-headliner">—</div>
@@ -141,24 +186,6 @@
                       <div class="view-block">
                         <span class="meta-k">Prime lore</span>
                         <div class="view-v prime-view" id="v-prime">—</div>
-                      </div>
-                      <div class="meta-lines">
-                        <div class="meta-line">
-                          <span class="meta-k">Lore code</span>
-                          <span class="meta-v mono" id="v-core">—</span>
-                        </div>
-                        <div class="meta-line" id="v-tps-line" hidden>
-                          <span class="meta-k">TPS chip</span>
-                          <span class="meta-v mono tps-chip" id="v-tps">—</span>
-                        </div>
-                        <div class="meta-line" id="v-ven-line" hidden>
-                          <span class="meta-k">VEN Chip</span>
-                          <span class="meta-v mono tps-chip" id="v-ven">—</span>
-                        </div>
-                        <div class="meta-line">
-                          <span class="meta-k">Gravity</span>
-                          <span class="meta-v" id="v-gravity">—</span>
-                        </div>
                       </div>
                     </div>
                     <hr class="section-hr" />
@@ -190,21 +217,8 @@
       <footer class="status" id="status">starting…</footer>
     </div>
 
-    <!-- B3: themed desk dialogs (native prompt cannot be styled) -->
-    <div id="dlg-overlay" class="dlg-overlay" hidden>
-      <div class="dlg" role="dialog" aria-modal="true" aria-labelledby="dlg-title">
-        <header class="dlg-chrome">
-          <span class="chip dlg-chip">lore<strong>BOX</strong></span>
-          <span class="dlg-title" id="dlg-title">Dialog</span>
-        </header>
-        <div class="dlg-body" id="dlg-body"></div>
-        <footer class="dlg-actions">
-          <button type="button" class="btn linkish" id="dlg-cancel">Cancel</button>
-          <button type="button" class="btn cta-new" id="dlg-ok">OK</button>
-        </footer>
-      </div>
-    </div>
-
+    <!-- Desk dialogs: datbox-core DatboxDesk (no window.confirm / alert) -->
+    <script src="/datbox-core/js/desk_dialog.js"></script>
     <script src="theme.js"></script>
     <script src="app.js"></script>
   </body>
