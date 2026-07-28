@@ -2,21 +2,12 @@
   "version": 1,
   "rom": "lorebox",
   "folder_order": [
-    "The-Project-Mausoleum",
     "Prime-Boxes",
     "Companies",
-    "Narratives",
-    "Locations"
+    "Locations",
+    "Glassbox-Outlines"
   ],
   "folders": {
-    "Narratives": {
-      "id": "Narratives",
-      "name": "Narratives"
-    },
-    "Locations": {
-      "id": "Locations",
-      "name": "Locations"
-    },
     "Companies": {
       "id": "Companies",
       "name": "Companies"
@@ -25,9 +16,13 @@
       "id": "Prime-Boxes",
       "name": "Prime-Boxes"
     },
-    "The-Project-Mausoleum": {
-      "id": "The-Project-Mausoleum",
-      "name": "The-Project-Mausoleum"
+    "Locations": {
+      "id": "Locations",
+      "name": "Locations"
+    },
+    "Glassbox-Outlines": {
+      "id": "Glassbox-Outlines",
+      "name": "Glassbox-Outlines"
     }
   },
   "boxes": [
@@ -44,12 +39,8 @@
       "folder": "Companies"
     },
     {
-      "stem": "CHEST13",
-      "folder": "Narratives"
-    },
-    {
-      "stem": "HOUSES",
-      "folder": "Locations"
+      "stem": "WBS",
+      "folder": "Companies"
     },
     {
       "stem": "FOREST",
@@ -64,12 +55,20 @@
       "folder": "Locations"
     },
     {
-      "stem": "RIP-OV",
-      "folder": "The-Project-Mausoleum"
+      "stem": "HOUSES",
+      "folder": "Locations"
     },
     {
-      "stem": "WBS",
-      "folder": "Companies"
+      "stem": "FT",
+      "folder": ""
+    },
+    {
+      "stem": "CHEST13",
+      "folder": ""
+    },
+    {
+      "stem": "RIP-OV",
+      "folder": ""
     }
   ]
 }

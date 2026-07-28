@@ -4,7 +4,7 @@
   "version": 1,
   "box_name": "Big Box Company",
   "stem": "BIG-BOX",
-  "next_seq": 2,
+  "next_seq": 3,
   "cards": [
     {
       "lore_code": "BIG-BOX-001.lore",
@@ -12,6 +12,15 @@
       "headliner": "Company Profile",
       "slugline": "Who is Big Box Company and what do they produce?",
       "prime_lore": "BIG BOX COMPANY is a ROM producer inside ALICE_BOX.\nThey are very boring. They are disinterested in fun. If it isn't productive, why produce it? That is their motto. Their primary product focus is documentation and executive software that ensures **it finally gets done**, even when no one wants to actually do it. Business tools build for low cognitive load and high flow state production.\n\nBIG BOX. Boring company. **Honest storage.**  ",
+      "gravity": 0,
+      "relates": []
+    },
+    {
+      "lore_code": "BIG-BOX-002.lore",
+      "lore_core": "BIG-BOX-002.lore",
+      "headliner": "ROM SKU: SPR-403 - SOPR Documenter",
+      "slugline": "A boring tool for fragmented documentation.",
+      "prime_lore": "Don't get excited.\nThere is very little here to be excited about.\nThe client said there were specifications lost in the glass. This SKU handles that.",
       "gravity": 0,
       "relates": []
     }

@@ -1,4 +1,4 @@
-.obsidian/
+﻿.obsidian/
 .DS_Store
 Thumbs.db
 __pycache__/
@@ -10,6 +10,6 @@ node_modules/
 *.sqlite-shm
 *.sqlite-wal
 
-# Runtime noise only — mats in safe_box are shippable house content
+# Runtime noise only â€” mats in safe_box are shippable house content
 **/box_sys/desk-server.log
 **/box_sys/__pycache__/
