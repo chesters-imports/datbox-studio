@@ -13,3 +13,10 @@ node_modules/
 # Runtime noise only â€” mats in safe_box are shippable house content
 **/box_sys/desk-server.log
 **/box_sys/__pycache__/
+
+# Operator mats / papers — local only for now (Hands will un-ignore later)
+safe_box/
+**/safe_box/
+paper/
+**/paper/
+
