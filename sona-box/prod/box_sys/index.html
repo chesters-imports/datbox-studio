@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>sonaBOX · CO.DBS-SONA</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=Special+Elite&family=Cormorant+Garamond:ital,wght@0,500;0,600;1,500&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="/app.css" />
+</head>
+<body class="sb">
+  <header class="sb-chrome" data-deck-chrome>
+    <span class="sb-chip" data-deck-menu title="Menu">sona<strong>BOX</strong></span>
+    <span class="sb-drag" data-deck-drag aria-hidden="true"></span>
+    <div class="sb-win" data-deck-window-controls aria-label="Window"></div>
+  </header>
+
+  <main class="sb-main">
+    <aside class="sb-rail" aria-label="Vaults">
+      <div class="sb-rail-h">Vaults</div>
+      <div class="sb-vault-list" id="vaultList"></div>
+      <form class="sb-new-vault" id="formVault">
+        <input type="text" id="vaultTitle" placeholder="new vault title" maxlength="80" />
+        <button type="submit">+</button>
+      </form>
+    </aside>
+
+    <section class="sb-mid">
+      <div class="sb-tabs" role="tablist">
+        <button type="button" class="is-on" data-tab="kven">KVEN</button>
+        <button type="button" data-tab="leaves">Leaves</button>
+        <button type="button" data-tab="notches">Notches</button>
+      </div>
+      <div class="sb-panel is-on" id="panelKven">
+        <form class="sb-mint" id="formKven">
+          <input type="text" id="kvenCode" placeholder="LLL-DDD or blank to mint" maxlength="32" />
+          <input type="text" id="kvenAlts" placeholder="alts (in-world names)" maxlength="200" />
+          <input type="text" id="kvenLabel" placeholder="label (private)" maxlength="120" />
+          <input type="text" id="kvenType" placeholder="type" maxlength="40" />
+          <button type="submit">mint / save</button>
+        </form>
+        <div class="sb-list" id="kvenList"></div>
+      </div>
+      <div class="sb-panel" id="panelLeaves" hidden>
+        <form class="sb-leaf-form" id="formLeaf">
+          <input type="text" id="leafTitle" placeholder="title" maxlength="200" />
+          <textarea id="leafBody" rows="8" placeholder="markdown body (tables ok)"></textarea>
+          <button type="submit">save leaf</button>
+        </form>
+        <div class="sb-list" id="leafList"></div>
+      </div>
+      <div class="sb-panel" id="panelNotches" hidden>
+        <form class="sb-mint" id="formNotch">
+          <input type="text" id="notchFrom" placeholder="FROM_CHIP" maxlength="80" />
+          <input type="text" id="notchTo" placeholder="TO_CHIP (KVEN)" maxlength="80" />
+          <input type="text" id="notchKind" placeholder="KIND" value="ABOUT" maxlength="40" />
+          <button type="submit">notch</button>
+        </form>
+        <div class="sb-list" id="notchList"></div>
+      </div>
+    </section>
+
+    <section class="sb-read" aria-label="Reader">
+      <div class="sb-read-h" id="readTitle">—</div>
+      <div class="sb-read-body" id="readBody"></div>
+    </section>
+  </main>
+
+  <footer class="sb-bar">
+    <span id="hint">mount a vault · mint a being</span>
+    <span class="sb-sku mono">CO.DBS-SONA</span>
+  </footer>
+  <div class="sb-toast" id="toast" hidden></div>
+  <script src="/app.js"></script>
+</body>
+</html>
