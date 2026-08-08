@@ -1,6 +1,5 @@
 {
-  "version": 1,
   "theme": "dark",
-  "safe_compact": false,
-  "window_mode": "standard"
+  "window_mode": "standard",
+  "safe_compact": false
 }

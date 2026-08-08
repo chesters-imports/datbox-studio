@@ -12,7 +12,8 @@ Products live in this house as their own bays.
 | Bay | ROM |
 |-----|-----|
 | `datbox-core/` | **Library only** — shelf + bag plumbing (`_{rom}.datshelf`) · not a desk · **v1 locked** |
-| `lore-box/` | **loreBOX** — LORE mats · reference ROM on core · **locked** |
+| `lore-box/` | **loreBOX v2** — Papers, Please (`INSPECT.deck` + `lore_….chip`) · port **42929** · **empty footing** |
+| `lore-box-v1-archive/` | **loreBOX v1** — JSON `.lorebox` bags · port **42928** · frozen, not migrated |
 | `shot-box/` | **shotBOX** — SHOT mats · **online** (desk launch; core port optional next) |
 | `prompt-box/` | **promptBOX** — prompt decks (question + optional notes) · on core · port **43002** |
 

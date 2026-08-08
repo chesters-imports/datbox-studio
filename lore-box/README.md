@@ -1,42 +1,53 @@
 ```
 =================================================
-  loreBOX
+  loreBOX v2
   a DATBOX by DatBox Studio
+  PAPERS, PLEASE
 =================================================
 ```
 
-**loreBOX** is a simple software by **DatBox Studio** — LORE-branded datmats for the pocket world.
+**loreBOX** is a simple software by **DatBox Studio** — LORE papers for the pocket world.
+
+**v2** stores **papers**, not JSON bags:
 
 | Path | Role |
 |------|------|
-| `docs/` | Product paper (planner, freezes) |
-| `prod/box_sys/` | The box program (imports `datbox-core`) |
-| `prod/safe_box/` | `.lorebox` bags · physical folders · `_lorebox.datshelf` |
-| `prod/box_sets/` | ROM settings |
+| `docs/` | Product paper |
+| `prod/box_sys/` | Desk (Papers, Please) |
+| `prod/safe_box/{auth}/{deck}/` | `INSPECT.deck` + `lore_….chip` |
+| `prod/box_sets/` | desk prefs only |
 
-**Shelf:** drag order + folder place via datbox-core (`_{rom}.datshelf`). shotBOX frozen — lore is first ROM on core.
+**Law:** no papers → no pudding.  
+**Gen:** `DBS-002-LOREBOX`  
+**Port:** **42929**
 
-Ticket / freeze: [[lore-box-planner]]
+### What is not here
 
-### Run as a ROM (The Deck Host)
+v1 JSON `.lorebox` bags were **not** migrated. They sit frozen at:
 
-Double-click **`prod/run-loreBOX.bat`** (or `run-loreBOX-quiet.bat`).
+`datbox-studio/lore-box-v1-archive/` (port **42928**)
 
-That starts this ROM’s desk server, opens **The Deck Host** on it, and stops the server when you close the window.  
-loreBOX files stay here; the host island only provides the window.
+Open archive if you want old half-ass footing or to copy a card by hand.
 
-Requires sibling: `ALICE_BOX/the-deck-host/shell/deck_host.py` and `pip install pywebview`.
+### Run as ROM (The Deck Host)
 
-### Run desk only (browser / dev)
+Double-click **`prod/run-loreBOX.bat`**.
+
+### Run desk only (browser)
 
 ```bat
 cd lore-box\prod\box_sys
 python server.py
 ```
 
-| URL | Notes |
-|-----|--------|
-| **http://datbox.lorebox.localhost:42929/** | Cute tester name |
-| http://127.0.0.1:42929/ | Plain loopback |
+→ http://127.0.0.1:42929/
 
-Saves: `prod/safe_box/`. Settings: `prod/box_sets/`.
+### Paper shape (case study)
+
+```
+safe_box/SDK808/db_CHSTRMTH/INSPECT.deck
+safe_box/SDK808/db_CHSTRMTH/lore_54kh-e4df-c35d.chip
+```
+
+Chip id prefix `lore_` **is** mat class on the being.  
+Export: `deck_lore-SDK808-db_CHSTRMTH.store`

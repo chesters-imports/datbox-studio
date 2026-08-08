@@ -1,21 +1,36 @@
 #!/usr/bin/env python3
 """
-loreBOX desk server — DATBOX island on datbox-core shelf.
+loreBOX v2 desk — Papers, Please.
 
-Serves the inner app and reads/writes only:
-  ../safe_box/  (physical folders + *.lorebox + _lorebox.datshelf)
-  ../box_sets/*
+  safe_box/{auth}/{deck_id}/INSPECT.deck
+  safe_box/{auth}/{deck_id}/lore_….chip
+
+No JSON bags. No content migrated from v1.
+Port 42929 (live). Archive v1 sits on 42928.
 """
 
 from __future__ import annotations
 
 import json
 import re
+import shutil
 import sys
+import zipfile
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from typing import Any
-from urllib.parse import parse_qs, urlparse
+from urllib.parse import parse_qs, unquote, urlparse
+
+from papers import (
+    empty_chip_meta,
+    empty_deck_meta,
+    export_store_name,
+    new_chip_id,
+    now_tps,
+    read_paper,
+    safe_token,
+    write_paper,
+)
 
 BOX_SYS = Path(__file__).resolve().parent
 PROD = BOX_SYS.parent
@@ -23,159 +38,181 @@ SAFE_BOX = PROD / "safe_box"
 BOX_SETS = PROD / "box_sets"
 HOST = "127.0.0.1"
 PORT = 42929
+PREFS_FILE = BOX_SETS / "desk_prefs.json"
+GEN = "DBS-002-LOREBOX"
 
-# datbox-core (house library — not a runnable ROM)
+# datbox-core · desk dialogs (Chester: no Windows prompts)
 _DATBOX_CORE = PROD.parent.parent / "datbox-core"
 _CORE_PY = _DATBOX_CORE / "py"
 if str(_CORE_PY) not in sys.path:
     sys.path.insert(0, str(_CORE_PY))
-
-from datbox_core import (  # noqa: E402
-    MatProfile,
-    SafeVault,
-    coerce_desk_prefs,
-    stem_type_a,
-    try_serve_core_static,
-)
-from datbox_core.io import load_json, save_json  # noqa: E402
-
-PROFILE = MatProfile(
-    rom_slug="lorebox",
-    bag_ext=".lorebox",
-    legacy_ext=".lore",
-    mat="lore",
-)
-VAULT = SafeVault(SAFE_BOX, PROFILE)
-
-BAG_EXT = PROFILE.bag_ext
-UNIT_EXT = ".lore"
-
-
-PREFS_FILE = BOX_SETS / "desk_prefs.json"
+try:
+    from datbox_core.static_mount import try_serve_core_static  # noqa: E402
+except ImportError:
+    try_serve_core_static = None  # type: ignore
 
 
 def ensure_dirs() -> None:
-    VAULT.ensure()
+    SAFE_BOX.mkdir(parents=True, exist_ok=True)
     BOX_SETS.mkdir(parents=True, exist_ok=True)
-    rel = BOX_SETS / "relation_types.json"
-    if not rel.exists():
-        rel.write_text(
-            json.dumps({"version": 1, "types": ["Relates to"]}, indent=2) + "\n",
+    if not PREFS_FILE.is_file():
+        PREFS_FILE.write_text(
+            json.dumps(
+                {"theme": "dark", "window_mode": "standard", "safe_compact": False},
+                indent=2,
+            )
+            + "\n",
             encoding="utf-8",
         )
-    if not PREFS_FILE.is_file():
-        save_json(PREFS_FILE, coerce_desk_prefs({}))
 
 
 def load_prefs() -> dict[str, Any]:
     ensure_dirs()
     try:
-        data = load_json(PREFS_FILE)
-    except (OSError, ValueError, json.JSONDecodeError):
-        return coerce_desk_prefs({})
-    return coerce_desk_prefs(data)
+        return json.loads(PREFS_FILE.read_text(encoding="utf-8-sig"))
+    except (OSError, json.JSONDecodeError):
+        return {"theme": "dark", "window_mode": "standard"}
 
 
 def save_prefs(patch: dict[str, Any]) -> dict[str, Any]:
     cur = load_prefs()
-    if not isinstance(patch, dict):
-        patch = {}
-    merged = dict(cur)
-    if "theme" in patch:
-        merged["theme"] = patch.get("theme")
-    if "safe_compact" in patch:
-        merged["safe_compact"] = patch.get("safe_compact")
-    if "window_mode" in patch:
-        merged["window_mode"] = patch.get("window_mode")
-    cur = coerce_desk_prefs(merged)
-    # reject garbage window_mode / theme after coerce only if caller sent junk
-    if "theme" in patch:
-        t = str(patch.get("theme") or "").strip().lower()
-        if t and t not in ("light", "dark", "system"):
-            raise ValueError("theme must be light, dark, or system")
-    if "window_mode" in patch:
-        w = str(patch.get("window_mode") or "").strip().lower()
-        allowed = {
-            "compact",
-            "standard",
-            "expanded",
-            "maximized",
-            "max",
-            "maximize",
-            "large",
-            "wide",
-            "big",
-            "mini",
-            "short",
-            "default",
-            "normal",
-        }
-        if w and w not in allowed:
-            raise ValueError(
-                "window_mode must be compact, standard, expanded, or maximized"
-            )
-    save_json(PREFS_FILE, cur)
+    cur.update({k: v for k, v in (patch or {}).items() if v is not None})
+    PREFS_FILE.write_text(json.dumps(cur, indent=2) + "\n", encoding="utf-8")
     return cur
 
 
-def empty_box(box_name: str, stem: str) -> dict[str, Any]:
+def deck_dir(auth: str, deck_id: str) -> Path:
+    return SAFE_BOX / safe_token(auth) / safe_token(deck_id)
+
+
+def deck_path(auth: str, deck_id: str) -> Path:
+    return deck_dir(auth, deck_id) / "INSPECT.deck"
+
+
+def list_tree() -> dict[str, Any]:
+    """auth → decks → chips (papers only)."""
+    ensure_dirs()
+    auths: list[dict[str, Any]] = []
+    if not SAFE_BOX.is_dir():
+        return {"ok": True, "gen": GEN, "auths": [], "empty": True}
+
+    for auth_p in sorted(SAFE_BOX.iterdir(), key=lambda p: p.name.lower()):
+        if not auth_p.is_dir() or auth_p.name.startswith(("_", ".")):
+            continue
+        # skip loose non-auth junk
+        decks: list[dict[str, Any]] = []
+        for deck_p in sorted(auth_p.iterdir(), key=lambda p: p.name.lower()):
+            if not deck_p.is_dir():
+                continue
+            dfile = deck_p / "INSPECT.deck"
+            if not dfile.is_file():
+                continue
+            meta, _ = read_paper(dfile)
+            deck_meta = meta.get("deck") or {}
+            store = meta.get("store") or {}
+            chips = []
+            for chip_p in sorted(deck_p.glob("lore_*.chip")):
+                cm, body = read_paper(chip_p)
+                ch = cm.get("chip") or {}
+                chips.append(
+                    {
+                        "id": ch.get("id") or chip_p.stem,
+                        "pos": ch.get("pos") or 0,
+                        "title": ch.get("title") or "",
+                        "leaf": ch.get("leaf") or "",
+                        "has_body": bool((body or "").strip()),
+                        "file": chip_p.name,
+                    }
+                )
+            chips.sort(key=lambda c: (int(c.get("pos") or 0), c.get("id") or ""))
+            decks.append(
+                {
+                    "id": deck_meta.get("id") or deck_p.name,
+                    "leaf": deck_meta.get("leaf") or "",
+                    "sku": store.get("sku") or "",
+                    "bit_count": store.get("bit_count")
+                    if store.get("bit_count") is not None
+                    else len(chips),
+                    "chip_count": len(chips),
+                    "chips": chips,
+                }
+            )
+        auths.append({"auth": auth_p.name, "decks": decks})
+    return {"ok": True, "gen": GEN, "auths": auths, "empty": len(auths) == 0}
+
+
+def load_deck(auth: str, deck_id: str) -> dict[str, Any] | None:
+    p = deck_path(auth, deck_id)
+    if not p.is_file():
+        return None
+    meta, body = read_paper(p)
+    chips = []
+    d = deck_dir(auth, deck_id)
+    for chip_p in sorted(d.glob("lore_*.chip")):
+        cm, cbody = read_paper(chip_p)
+        ch = cm.get("chip") or {}
+        pin = cm.get("pin") or {}
+        chips.append(
+            {
+                "id": ch.get("id") or chip_p.stem,
+                "pos": ch.get("pos") or 0,
+                "title": ch.get("title") or "",
+                "leaf": ch.get("leaf") or "",
+                "body": cbody or "",
+                "pin": pin,
+                "file": chip_p.name,
+                "meta": cm,
+            }
+        )
+    chips.sort(key=lambda c: (int(c.get("pos") or 0), c.get("id") or ""))
+    # keep bit_count honest
+    store = meta.setdefault("store", {})
+    store["bit_count"] = len(chips)
     return {
-        "house": "DATBOX",
-        "mat": "lore",
-        "version": 1,
-        "box_name": box_name,
-        "stem": stem,
-        "next_seq": 1,
-        "cards": [],
+        "ok": True,
+        "auth": auth,
+        "deck_id": deck_id,
+        "meta": meta,
+        "body": body,
+        "chips": chips,
+        "path": str(p.relative_to(PROD)).replace("\\", "/"),
     }
 
 
-def all_cards_index() -> list[dict[str, Any]]:
-    rows: list[dict[str, Any]] = []
-    for stem, _p, data in VAULT.all_bag_data():
-        box_name = data.get("box_name") or stem
-        for card in data.get("cards") or []:
-            rows.append(
-                {
-                    "box_stem": stem,
-                    "box_name": box_name,
-                    "lore_code": card.get("lore_code") or card.get("lore_core") or "",
-                    "headliner": card.get("headliner") or "",
-                }
-            )
-    return rows
+def load_chip(auth: str, deck_id: str, chip_id: str) -> dict[str, Any] | None:
+    d = deck_dir(auth, deck_id)
+    # file may be lore_xxx.chip matching id
+    candidates = list(d.glob(f"{chip_id}.chip"))
+    if not candidates:
+        for chip_p in d.glob("lore_*.chip"):
+            cm, _ = read_paper(chip_p)
+            if (cm.get("chip") or {}).get("id") == chip_id:
+                candidates = [chip_p]
+                break
+    if not candidates:
+        return None
+    chip_p = candidates[0]
+    meta, body = read_paper(chip_p)
+    return {
+        "ok": True,
+        "auth": auth,
+        "deck_id": deck_id,
+        "chip_id": (meta.get("chip") or {}).get("id") or chip_id,
+        "meta": meta,
+        "body": body,
+        "path": str(chip_p.relative_to(PROD)).replace("\\", "/"),
+        "file": chip_p.name,
+    }
 
 
-def rewrite_stem_in_box(data: dict[str, Any], old_stem: str, new_stem: str) -> dict[str, Any]:
-    data = json.loads(json.dumps(data))
-    data["stem"] = new_stem
-    for card in data.get("cards") or []:
-        code = card.get("lore_code") or card.get("lore_core") or ""
-        m = re.match(rf"^{re.escape(old_stem)}-(\d+)\.(?:lore|frag)$", code)
-        if m:
-            new_code = f"{new_stem}-{m.group(1)}.lore"
-            card["lore_code"] = new_code
-            card["lore_core"] = new_code
-        for rel in card.get("relates") or []:
-            t = rel.get("to") or ""
-            m2 = re.match(rf"^{re.escape(old_stem)}-(\d+)\.(?:lore|frag)$", t)
-            if m2:
-                rel["to"] = f"{new_stem}-{m2.group(1)}.lore"
-    return data
-
-
-def patch_relates_across_safe_box(old_stem: str, new_stem: str) -> None:
-    for _stem, p, data in VAULT.all_bag_data():
-        changed = False
-        for card in data.get("cards") or []:
-            for rel in card.get("relates") or []:
-                t = rel.get("to") or ""
-                m = re.match(rf"^{re.escape(old_stem)}-(\d+)\.(?:lore|frag)$", t)
-                if m:
-                    rel["to"] = f"{new_stem}-{m.group(1)}.lore"
-                    changed = True
-        if changed:
-            save_json(p, data)
+def recount_deck(auth: str, deck_id: str) -> None:
+    p = deck_path(auth, deck_id)
+    if not p.is_file():
+        return
+    meta, body = read_paper(p)
+    n = len(list(deck_dir(auth, deck_id).glob("lore_*.chip")))
+    meta.setdefault("store", {})["bit_count"] = n
+    write_paper(p, meta, body)
 
 
 class Handler(SimpleHTTPRequestHandler):
@@ -206,6 +243,7 @@ class Handler(SimpleHTTPRequestHandler):
     def do_GET(self) -> None:  # noqa: N802
         parsed = urlparse(self.path)
         path = parsed.path
+        q = parse_qs(parsed.query)
 
         if path == "/api/health":
             return self._send(
@@ -213,46 +251,43 @@ class Handler(SimpleHTTPRequestHandler):
                 {
                     "ok": True,
                     "app": "loreBOX",
+                    "gen": GEN,
+                    "papers": True,
+                    "version": 2,
                     "house": "DATBOX",
                     "safe_box": str(SAFE_BOX),
-                    "prefs": str(PREFS_FILE),
-                    "core": "datbox-core",
-                    "shelf": f"_{PROFILE.rom_slug}.datshelf",
                     "port": PORT,
+                    "law": "PAPERS_PLEASE",
+                    "v1_archive": "datbox-studio/lore-box-v1-archive (port 42928)",
                 },
             )
 
-        if path == "/api/boxes":
-            tree = VAULT.list_tree()
-            return self._send(200, tree)
-
-        if path == "/api/catalog":
-            return self._send(200, {"cards": all_cards_index()})
-
-        if path == "/api/settings/relation_types":
-            p = BOX_SETS / "relation_types.json"
-            ensure_dirs()
-            return self._send(200, load_json(p))
+        if path == "/api/tree":
+            return self._send(200, list_tree())
 
         if path == "/api/prefs":
             return self._send(200, {"ok": True, "prefs": load_prefs()})
 
-        if path == "/api/stem":
-            qs = parse_qs(parsed.query)
-            name = (qs.get("name") or [""])[0]
-            return self._send(200, {"stem": stem_type_a(name)})
-
-        if path.startswith("/api/box/"):
-            stem = path[len("/api/box/") :]
-            stem = re.sub(r"[^\w\-]+", "", stem)
-            try:
-                data = VAULT.load_box(stem)
-            except FileNotFoundError:
-                return self._send(404, {"error": "box not found", "stem": stem})
+        if path == "/api/deck":
+            auth = safe_token((q.get("auth") or [""])[0])
+            deck_id = safe_token((q.get("deck") or [""])[0])
+            data = load_deck(auth, deck_id)
+            if not data:
+                return self._send(404, {"ok": False, "error": "deck not found"})
             return self._send(200, data)
 
-        if try_serve_core_static(self, path, core_root=_DATBOX_CORE):
-            return
+        if path == "/api/chip":
+            auth = safe_token((q.get("auth") or [""])[0])
+            deck_id = safe_token((q.get("deck") or [""])[0])
+            chip_id = (q.get("chip") or [""])[0].strip()
+            data = load_chip(auth, deck_id, chip_id)
+            if not data:
+                return self._send(404, {"ok": False, "error": "chip not found"})
+            return self._send(200, data)
+
+        if try_serve_core_static is not None:
+            if try_serve_core_static(self, path, core_root=_DATBOX_CORE):
+                return
 
         return super().do_GET()
 
@@ -262,304 +297,149 @@ class Handler(SimpleHTTPRequestHandler):
         try:
             body = self._read_json()
         except json.JSONDecodeError:
-            return self._send(400, {"error": "bad json"})
-
-        if path == "/api/boxes":
-            box_name = (body.get("box_name") or "").strip()
-            if not box_name:
-                return self._send(400, {"error": "box_name required"})
-            stem = (body.get("stem") or "").strip() or stem_type_a(box_name)
-            stem = re.sub(r"[^\w\-]+", "", stem) or "X"
-            folder = (body.get("folder") or "").strip()
-            try:
-                data = VAULT.create_box(
-                    box_name, stem=stem, folder=folder, empty_box=empty_box
-                )
-            except FileExistsError:
-                return self._send(409, {"error": "stem already exists", "stem": stem})
-            except ValueError as e:
-                return self._send(400, {"error": str(e)})
-            return self._send(201, data)
-
-        if path == "/api/folders":
-            name = (body.get("name") or body.get("folder") or "").strip()
-            try:
-                folder = VAULT.create_folder(name)
-            except FileExistsError:
-                return self._send(409, {"error": "folder exists", "name": name})
-            except ValueError as e:
-                return self._send(400, {"error": str(e)})
-            return self._send(201, {"ok": True, "folder": folder, **VAULT.list_tree()})
-
-        # POST /api/folders/rename  { id, name }
-        if path == "/api/folders/rename":
-            old_id = (body.get("id") or body.get("folder") or "").strip()
-            new_name = (body.get("name") or body.get("new_name") or "").strip()
-            try:
-                folder = VAULT.rename_folder(old_id, new_name)
-            except FileNotFoundError:
-                return self._send(404, {"error": "folder not found", "id": old_id})
-            except FileExistsError:
-                return self._send(409, {"error": "folder exists", "name": new_name})
-            except ValueError as e:
-                return self._send(400, {"error": str(e)})
-            return self._send(200, {"ok": True, "folder": folder, **VAULT.list_tree()})
-
-        if path == "/api/shelf":
-            # drag order + membership
-            try:
-                tree = VAULT.apply_layout(
-                    folder_order=body.get("folder_order"),
-                    boxes=body.get("boxes"),
-                )
-            except (FileExistsError, ValueError, FileNotFoundError) as e:
-                return self._send(400, {"error": str(e)})
-            return self._send(200, {"ok": True, **tree})
-
-        if path == "/api/settings/relation_types":
-            types = body.get("types")
-            if not isinstance(types, list) or not types:
-                return self._send(400, {"error": "types list required"})
-            clean = [str(t).strip() for t in types if str(t).strip()]
-            if "Relates to" not in clean:
-                clean.insert(0, "Relates to")
-            data = {"version": 1, "types": clean}
-            save_json(BOX_SETS / "relation_types.json", data)
-            return self._send(200, data)
+            return self._send(400, {"ok": False, "error": "bad json"})
 
         if path == "/api/prefs":
-            try:
-                prefs = save_prefs(body if isinstance(body, dict) else {})
-            except ValueError as e:
-                return self._send(400, {"error": str(e)})
-            return self._send(200, {"ok": True, "prefs": prefs})
+            return self._send(200, {"ok": True, "prefs": save_prefs(body.get("prefs") or body)})
 
-        if path.startswith("/api/box/") and path.endswith("/card"):
-            stem = path[len("/api/box/") : -len("/card")]
-            stem = re.sub(r"[^\w\-]+", "", stem)
-            try:
-                data = VAULT.load_box(stem)
-            except FileNotFoundError:
-                return self._send(404, {"error": "box not found"})
-            seq = int(data.get("next_seq") or 1)
-            code = f"{stem}-{seq:03d}{UNIT_EXT}"
-            card = {
-                "lore_code": code,
-                "lore_core": code,
-                "headliner": (body.get("headliner") or "").strip(),
-                "slugline": (body.get("slugline") or "").strip(),
-                "prime_lore": body.get("prime_lore") or "",
-                "gravity": int(body.get("gravity") or 0),
-                "relates": body.get("relates") if isinstance(body.get("relates"), list) else [],
-            }
-            tps_chip = str(body.get("tps_chip") or "").strip()
-            tps_export = str(body.get("tps_export") or "").strip()
-            if tps_chip:
-                card["tps_chip"] = tps_chip
-            if tps_export:
-                card["tps_export"] = tps_export
-            if isinstance(body.get("tps_vencodes"), list) and body["tps_vencodes"]:
-                codes = []
-                seen = set()
-                for v in body["tps_vencodes"]:
-                    if isinstance(v, str):
-                        c = v.strip()
-                    elif isinstance(v, dict):
-                        c = str(v.get("code") or "").strip()
-                    else:
-                        c = ""
-                    if c and c not in seen:
-                        seen.add(c)
-                        codes.append(c)
-                if codes:
-                    card["tps_vencodes"] = codes
-            data.setdefault("cards", []).append(card)
-            data["next_seq"] = seq + 1
-            VAULT.save_box_at_stem(stem, data)
-            return self._send(201, {"box": data, "card": card})
+        if path == "/api/deck/create":
+            auth = safe_token(body.get("auth") or "LOCAL", "LOCAL")
+            deck_id = safe_token(body.get("deck_id") or body.get("id") or "", "")
+            if not deck_id:
+                raw = (body.get("name") or body.get("leaf") or "new-deck").strip()
+                deck_id = safe_token(raw.replace(" ", "-"), "db_NEW")
+                if not deck_id.startswith("db_"):
+                    deck_id = "db_" + deck_id[:40]
+            leaf = (body.get("leaf") or body.get("name") or deck_id).strip()
+            p = deck_path(auth, deck_id)
+            if p.is_file():
+                return self._send(409, {"ok": False, "error": "deck exists", "deck_id": deck_id})
+            meta = empty_deck_meta(auth, deck_id, leaf=leaf)
+            write_paper(p, meta, "")
+            return self._send(200, {"ok": True, "auth": auth, "deck_id": deck_id, "path": str(p)})
 
-        return self._send(404, {"error": "not found"})
+        if path == "/api/deck/save":
+            auth = safe_token(body.get("auth") or "")
+            deck_id = safe_token(body.get("deck_id") or "")
+            p = deck_path(auth, deck_id)
+            if not p.is_file():
+                return self._send(404, {"ok": False, "error": "deck not found"})
+            meta, old_body = read_paper(p)
+            if "leaf" in body:
+                meta.setdefault("deck", {})["leaf"] = body.get("leaf") or ""
+            if "body" in body:
+                old_body = body.get("body") or ""
+            n = len(list(deck_dir(auth, deck_id).glob("lore_*.chip")))
+            meta.setdefault("store", {})["bit_count"] = n
+            write_paper(p, meta, old_body)
+            return self._send(200, load_deck(auth, deck_id))
 
-    def do_PUT(self) -> None:  # noqa: N802
-        parsed = urlparse(self.path)
-        path = parsed.path
-        try:
-            body = self._read_json()
-        except json.JSONDecodeError:
-            return self._send(400, {"error": "bad json"})
+        if path == "/api/chip/create":
+            auth = safe_token(body.get("auth") or "")
+            deck_id = safe_token(body.get("deck_id") or "")
+            if not deck_path(auth, deck_id).is_file():
+                return self._send(404, {"ok": False, "error": "deck not found — create deck first"})
+            existing = list(deck_dir(auth, deck_id).glob("lore_*.chip"))
+            pos = int(body.get("pos") or (len(existing) + 1))
+            title = (body.get("title") or "untitled lore").strip()
+            leaf = (body.get("leaf") or "").strip()
+            chip_body = body.get("body") or ""
+            cid = body.get("chip_id") or new_chip_id()
+            meta = empty_chip_meta(auth, deck_id, chip_id=cid, pos=pos, title=title, leaf=leaf)
+            out = deck_dir(auth, deck_id) / f"{meta['chip']['id']}.chip"
+            write_paper(out, meta, chip_body)
+            recount_deck(auth, deck_id)
+            return self._send(
+                200,
+                {
+                    "ok": True,
+                    "chip_id": meta["chip"]["id"],
+                    "file": out.name,
+                    "chip": load_chip(auth, deck_id, meta["chip"]["id"]),
+                },
+            )
 
-        if path.startswith("/api/box/"):
-            rest = path[len("/api/box/") :]
-            if "/card/" in rest:
-                stem, _, code = rest.partition("/card/")
-                stem = re.sub(r"[^\w\-]+", "", stem)
-                try:
-                    data = VAULT.load_box(stem)
-                except FileNotFoundError:
-                    return self._send(404, {"error": "box not found"})
-                found = None
-                for card in data.get("cards") or []:
-                    if card.get("lore_code") == code or card.get("lore_core") == code:
-                        found = card
-                        break
-                if not found:
-                    return self._send(404, {"error": "card not found"})
-                if "headliner" in body:
-                    found["headliner"] = str(body.get("headliner") or "")
-                if "slugline" in body:
-                    found["slugline"] = str(body.get("slugline") or "")
-                tps_chip = str(body.get("tps_chip") or "").strip()
-                tps_export = str(body.get("tps_export") or "").strip()
-                if tps_chip:
-                    found["tps_chip"] = tps_chip
-                if tps_export:
-                    found["tps_export"] = tps_export
-                if isinstance(body.get("tps_vencodes"), list) and body["tps_vencodes"]:
-                    codes = []
-                    seen = set()
-                    for v in body["tps_vencodes"]:
-                        if isinstance(v, str):
-                            c = v.strip()
-                        elif isinstance(v, dict):
-                            c = str(v.get("code") or "").strip()
-                        else:
-                            c = ""
-                        if c and c not in seen:
-                            seen.add(c)
-                            codes.append(c)
-                    if codes:
-                        found["tps_vencodes"] = codes
-                if body.get("tps_clear"):
-                    found.pop("tps_chip", None)
-                    found.pop("tps_export", None)
-                    found.pop("tps_vencodes", None)
-                if "prime_lore" in body:
-                    found["prime_lore"] = str(body.get("prime_lore") or "")
-                if "gravity" in body:
-                    found["gravity"] = int(body.get("gravity") or 0)
-                if "relates" in body and isinstance(body.get("relates"), list):
-                    found["relates"] = body["relates"]
-                found["lore_core"] = found.get("lore_code") or code
-                VAULT.save_box_at_stem(stem, data)
-                return self._send(200, {"box": data, "card": found})
+        if path == "/api/chip/save":
+            auth = safe_token(body.get("auth") or "")
+            deck_id = safe_token(body.get("deck_id") or "")
+            chip_id = (body.get("chip_id") or "").strip()
+            cur = load_chip(auth, deck_id, chip_id)
+            if not cur:
+                return self._send(404, {"ok": False, "error": "chip not found"})
+            meta = cur["meta"]
+            chip = meta.setdefault("chip", {})
+            if "title" in body:
+                chip["title"] = body.get("title") or ""
+            if "leaf" in body:
+                chip["leaf"] = body.get("leaf") or ""
+            if "pos" in body:
+                chip["pos"] = int(body.get("pos") or chip.get("pos") or 1)
+            pin = meta.setdefault("pin", {})
+            pin["tps"] = now_tps()
+            if "tags" in body and isinstance(body["tags"], list):
+                pin["tags"] = body["tags"]
+            cbody = body["body"] if "body" in body else cur.get("body") or ""
+            out = deck_dir(auth, deck_id) / cur["file"]
+            write_paper(out, meta, cbody)
+            return self._send(200, load_chip(auth, deck_id, chip_id))
 
-            stem = re.sub(r"[^\w\-]+", "", rest)
-            try:
-                data = VAULT.load_box(stem)
-            except FileNotFoundError:
-                return self._send(404, {"error": "box not found"})
+        if path == "/api/chip/delete":
+            auth = safe_token(body.get("auth") or "")
+            deck_id = safe_token(body.get("deck_id") or "")
+            chip_id = (body.get("chip_id") or "").strip()
+            cur = load_chip(auth, deck_id, chip_id)
+            if not cur:
+                return self._send(404, {"ok": False, "error": "chip not found"})
+            (deck_dir(auth, deck_id) / cur["file"]).unlink(missing_ok=True)
+            recount_deck(auth, deck_id)
+            return self._send(200, {"ok": True})
 
-            new_name = body.get("box_name")
-            new_stem = body.get("stem")
-            if new_name is not None or new_stem is not None:
-                old_stem = data.get("stem") or stem
-                if new_name is not None:
-                    data["box_name"] = str(new_name).strip() or data.get("box_name")
-                if new_stem is not None:
-                    ns = re.sub(r"[^\w\-]+", "", str(new_stem).strip()) or old_stem
-                else:
-                    ns = old_stem
-                if ns != old_stem:
-                    try:
-                        data = rewrite_stem_in_box(data, old_stem, ns)
-                        VAULT.rename_box_file(old_stem, ns, data)
-                        patch_relates_across_safe_box(old_stem, ns)
-                    except FileExistsError:
-                        return self._send(409, {"error": "stem already exists", "stem": ns})
-                    return self._send(200, data)
-                VAULT.save_box_at_stem(stem, data)
-                return self._send(200, data)
+        if path == "/api/deck/delete":
+            auth = safe_token(body.get("auth") or "")
+            deck_id = safe_token(body.get("deck_id") or "")
+            d = deck_dir(auth, deck_id)
+            if not d.is_dir():
+                return self._send(404, {"ok": False, "error": "deck not found"})
+            shutil.rmtree(d)
+            auth_p = SAFE_BOX / auth
+            if auth_p.is_dir() and not any(auth_p.iterdir()):
+                auth_p.rmdir()
+            return self._send(200, {"ok": True})
 
-            if "folder" in body:
-                try:
-                    VAULT.move_box(stem, str(body.get("folder") or ""))
-                    data = VAULT.load_box(stem)
-                except (FileNotFoundError, FileExistsError, ValueError) as e:
-                    return self._send(400, {"error": str(e)})
-                return self._send(200, data)
+        if path == "/api/export/store":
+            # zip bank face — deck_lore-{auth}-{deck}.store
+            auth = safe_token(body.get("auth") or "")
+            deck_id = safe_token(body.get("deck_id") or "")
+            d = deck_dir(auth, deck_id)
+            if not d.is_dir():
+                return self._send(404, {"ok": False, "error": "deck not found"})
+            exports = PROD / "exports"
+            exports.mkdir(parents=True, exist_ok=True)
+            name = export_store_name(auth, deck_id)
+            out = exports / name
+            with zipfile.ZipFile(out, "w", zipfile.ZIP_DEFLATED) as zf:
+                for f in d.rglob("*"):
+                    if f.is_file():
+                        zf.write(f, f.relative_to(d).as_posix())
+            return self._send(
+                200,
+                {
+                    "ok": True,
+                    "file": name,
+                    "path": str(out.relative_to(PROD)).replace("\\", "/"),
+                },
+            )
 
-            if "cards" in body:
-                data["cards"] = body["cards"]
-            if "box_name" in body:
-                data["box_name"] = body["box_name"]
-            if "next_seq" in body:
-                data["next_seq"] = int(body["next_seq"])
-            VAULT.save_box_at_stem(stem, data)
-            return self._send(200, data)
-
-        return self._send(404, {"error": "not found"})
-
-    def do_DELETE(self) -> None:  # noqa: N802
-        parsed = urlparse(self.path)
-        path = parsed.path
-
-        # DELETE /api/folders/{id} — bags move to unsorted, folder dir removed
-        m = re.fullmatch(r"/api/folders/([^/]+)", path)
-        if m:
-            fid = m.group(1)
-            try:
-                result = VAULT.delete_folder(fid)
-            except FileNotFoundError:
-                return self._send(404, {"error": "folder not found", "id": fid})
-            except (FileExistsError, ValueError) as e:
-                return self._send(400, {"error": str(e)})
-            tree = VAULT.list_tree()
-            return self._send(200, {"ok": True, **result, **tree})
-
-        if path.startswith("/api/box/"):
-            rest = path[len("/api/box/") :]
-            if "/card/" in rest:
-                stem, _, code = rest.partition("/card/")
-                stem = re.sub(r"[^\w\-]+", "", stem)
-                try:
-                    data = VAULT.load_box(stem)
-                except FileNotFoundError:
-                    return self._send(404, {"error": "box not found"})
-                before = len(data.get("cards") or [])
-                data["cards"] = [
-                    c
-                    for c in (data.get("cards") or [])
-                    if c.get("lore_code") != code and c.get("lore_core") != code
-                ]
-                if len(data["cards"]) == before:
-                    return self._send(404, {"error": "card not found"})
-                VAULT.save_box_at_stem(stem, data)
-                return self._send(200, data)
-
-            stem = re.sub(r"[^\w\-]+", "", rest)
-            try:
-                VAULT.delete_box(stem)
-            except FileNotFoundError:
-                return self._send(404, {"error": "box not found"})
-            return self._send(200, {"deleted": stem})
-
-        return self._send(404, {"error": "not found"})
-
-
-class DeskServer(ThreadingHTTPServer):
-    allow_reuse_address = True
-    daemon_threads = True
+        return self._send(404, {"ok": False, "error": "not found"})
 
 
 def main() -> None:
     ensure_dirs()
-    VAULT.reconcile_shelf()
-    try:
-        httpd = DeskServer((HOST, PORT), Handler)
-    except OSError as e:
-        print(f"loreBOX failed to bind {HOST}:{PORT} — {e}", file=sys.stderr)
-        sys.exit(1)
-    cute = f"http://datbox.lorebox.localhost:{PORT}/"
-    plain = f"http://{HOST}:{PORT}/"
-    print(f"loreBOX desk  {cute}", flush=True)
-    print(f"              {plain}", flush=True)
-    print(f"safe_box      {SAFE_BOX}", flush=True)
-    print(f"shelf         _{PROFILE.rom_slug}.datshelf · datbox-core", flush=True)
-    try:
-        httpd.serve_forever()
-    except KeyboardInterrupt:
-        print("\nbye", flush=True)
-        httpd.server_close()
+    httpd = ThreadingHTTPServer((HOST, PORT), Handler)
+    print(f"loreBOX v2 · Papers, Please · http://{HOST}:{PORT}/")
+    print(f"  safe_box={SAFE_BOX}")
+    print(f"  gen={GEN} · empty until you file papers")
+    httpd.serve_forever()
 
 
 if __name__ == "__main__":

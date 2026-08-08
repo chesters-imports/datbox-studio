@@ -1,0 +1,225 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>loreBOX</title>
+    <link rel="stylesheet" href="app.css" />
+    <link rel="stylesheet" href="/datbox-core/css/desk_dialog.css" />
+  </head>
+  <body>
+    <div id="app">
+      <!--
+        Deck Host integration (no second caption):
+        data-deck-chrome = this bar is the only top chrome
+        data-deck-menu   = chip is the host menu (not an injected gem)
+        data-deck-drag   = drag window
+        data-deck-window-controls = host injects min/max/close only
+      -->
+      <header class="app-chrome" data-deck-chrome>
+        <span class="chip" data-deck-menu title="Menu">lore<strong>BOX</strong></span>
+        <span class="chrome-meta" id="chrome-meta" data-deck-drag
+          >DATBOX Studio - no BOX loaded</span
+        >
+        <div class="deck-win" data-deck-window-controls aria-label="Window"></div>
+      </header>
+
+      <div class="work">
+        <!-- B14: rail column — open tab + safe box (toggle stays on rail, not header) -->
+        <div class="rail-column">
+          <!-- collapsed strip: open tab stays top; open-deck tools when a box is loaded -->
+          <div class="rail-slim" id="rail-slim" hidden>
+            <button type="button" class="rail-tab" id="btn-rail-open" title="Open safe box" aria-label="Open safe box">»</button>
+            <button type="button" class="rail-slim-btn" id="btn-slim-rename" title="Settings / rename open deck" aria-label="Rename open deck" disabled>⚙</button>
+            <button type="button" class="rail-slim-btn danger" id="btn-slim-del" title="Delete open deck" aria-label="Delete open deck" disabled>🗑</button>
+          </div>
+          <aside class="region rail" id="safe-rail" aria-label="Safe box">
+            <div class="region-head">
+              <span>Safe box</span>
+              <div class="head-actions">
+                <button type="button" class="btn linkish density-toggle" id="btn-safe-density" title="Density · comfy / compact" aria-label="Safe box density" aria-pressed="false">
+                  <!-- hairline stack · sized to match « rail close -->
+                  <svg class="density-ico density-ico-comfy" viewBox="0 0 12 12" width="10" height="10" aria-hidden="true">
+                    <rect x="1.5" y="1.75" width="9" height="1.5" rx="0.4" fill="currentColor"/>
+                    <rect x="1.5" y="5.25" width="9" height="1.5" rx="0.4" fill="currentColor" opacity="0.45"/>
+                    <rect x="1.5" y="8.75" width="9" height="1.5" rx="0.4" fill="currentColor"/>
+                  </svg>
+                  <svg class="density-ico density-ico-compact" viewBox="0 0 12 12" width="10" height="10" aria-hidden="true" hidden>
+                    <rect x="1.5" y="1.25" width="9" height="1" rx="0.3" fill="currentColor"/>
+                    <rect x="1.5" y="3.5" width="9" height="1" rx="0.3" fill="currentColor" opacity="0.55"/>
+                    <rect x="1.5" y="5.75" width="9" height="1" rx="0.3" fill="currentColor"/>
+                    <rect x="1.5" y="8" width="9" height="1" rx="0.3" fill="currentColor" opacity="0.55"/>
+                    <rect x="1.5" y="10.25" width="9" height="1" rx="0.3" fill="currentColor"/>
+                  </svg>
+                </button>
+                <button type="button" class="btn linkish rail-close" id="btn-rail-close" title="Collapse safe box" aria-label="Collapse safe box">«</button>
+              </div>
+            </div>
+            <div class="region-body" id="box-list"></div>
+            <div class="region-foot dock dock-4" role="toolbar" aria-label="Safe box tools">
+              <button type="button" class="btn dock-btn" id="btn-new-box" title="New box" aria-label="New box">+</button>
+              <button type="button" class="btn dock-btn" id="btn-new-folder" title="New folder (physical place)" aria-label="New folder">📁</button>
+              <button type="button" class="btn dock-btn" id="btn-rename" title="Rename selected folder" aria-label="Rename folder" disabled>⚙</button>
+              <button type="button" class="btn dock-btn danger" id="btn-del-box" title="Delete selected folder" aria-label="Delete folder" disabled>🗑</button>
+            </div>
+          </aside>
+        </div>
+
+        <!-- Context + cards + editor only when a box is loaded -->
+        <div class="main" id="main-pane">
+          <div id="main-empty" class="main-empty">
+            <p class="empty-hint">
+              Select a lore DATBOX in the safe box rail,<br />
+              or create one here.
+            </p>
+            <button type="button" class="btn cta-new" id="btn-new-box-empty">New box</button>
+          </div>
+
+          <div id="main-loaded" class="main-loaded" hidden>
+            <div class="context-strip" aria-label="Loaded box">
+              <div class="meta-display">
+                <span class="meta-k">Datbox name</span>
+                <span class="meta-v" id="meta-box-name">—</span>
+              </div>
+              <div class="meta-display">
+                <span class="meta-k">Slug Code</span>
+                <span class="meta-v mono" id="meta-stem">—</span>
+              </div>
+              <div class="deck-actions" role="group" aria-label="Deck actions">
+                <button type="button" class="btn" id="btn-rename-deck" title="Rename this deck">Rename deck…</button>
+                <button type="button" class="btn danger" id="btn-delete-deck" title="Delete this deck">Delete deck…</button>
+              </div>
+            </div>
+
+            <div class="main-split">
+              <section class="region cards" aria-label="Lore cards">
+                <div class="region-head">
+                  <span>Cards</span>
+                  <button type="button" class="btn btn-icon" id="btn-new-card" title="New card" aria-label="New card">+</button>
+                </div>
+                <div class="region-body" id="card-list"></div>
+              </section>
+
+              <section class="region editor-region" aria-label="Editor">
+                <div class="region-head">
+                  <span>Dat card</span>
+                  <div class="head-actions">
+                    <button type="button" class="btn btn-save-pop" id="btn-save" disabled>Save card</button>
+                    <button type="button" class="btn" id="btn-edit-card" hidden>Edit</button>
+                    <button type="button" class="btn btn-icon danger" id="btn-del-card" title="Delete card" aria-label="Delete card" disabled hidden>🗑</button>
+                  </div>
+                </div>
+                <div class="region-body">
+                  <div id="editor-empty" class="empty-hint">
+                    No card selected.<br />
+                    New card mints a LORE-CODE, or pick one from the list.
+                  </div>
+                  <div id="editor" class="editor" hidden>
+                    <!-- edit mode — identity meta quiet at top -->
+                    <div id="card-edit" class="card-edit">
+                      <div class="card-id-meta" aria-label="Card identity">
+                        <div class="card-id-cell">
+                          <span class="meta-k">Lore code</span>
+                          <span class="meta-v mono" id="f-core">—</span>
+                        </div>
+                        <div class="card-id-cell" id="f-tps-line" hidden>
+                          <span class="meta-k">TPS chip</span>
+                          <span class="meta-v mono tps-chip" id="f-tps" title="Message chip from Time Machina when this mat was minted">—</span>
+                        </div>
+                        <div class="card-id-cell" id="f-ven-line" hidden>
+                          <span class="meta-k">VEN chip</span>
+                          <span class="meta-v mono tps-chip" id="f-ven" title="VEN codes present on TPS chip when minted (codes only)">—</span>
+                        </div>
+                        <div class="card-id-cell gravity-line">
+                          <span class="meta-k">Gravity</span>
+                          <select id="f-gravity">
+                            <option value="0">0 · unset</option>
+                            <option value="1">1</option>
+                            <option value="2">2</option>
+                            <option value="3">3</option>
+                            <option value="4">4</option>
+                            <option value="5">5</option>
+                          </select>
+                        </div>
+                      </div>
+                      <div class="field">
+                        <span>Headliner</span>
+                        <input type="text" id="f-headliner" autocomplete="off" />
+                      </div>
+                      <div class="field">
+                        <span>Slugline</span>
+                        <input type="text" id="f-slugline" autocomplete="off" />
+                      </div>
+                      <div class="field prime">
+                        <span>Prime lore</span>
+                        <textarea id="f-prime" spellcheck="true"></textarea>
+                      </div>
+                    </div>
+                    <!-- view mode (B13) — meta top, content below -->
+                    <div id="card-view" class="card-view" hidden>
+                      <div class="card-id-meta" aria-label="Card identity">
+                        <div class="card-id-cell">
+                          <span class="meta-k">Lore code</span>
+                          <span class="meta-v mono" id="v-core">—</span>
+                        </div>
+                        <div class="card-id-cell" id="v-tps-line" hidden>
+                          <span class="meta-k">TPS chip</span>
+                          <span class="meta-v mono tps-chip" id="v-tps">—</span>
+                        </div>
+                        <div class="card-id-cell" id="v-ven-line" hidden>
+                          <span class="meta-k">VEN chip</span>
+                          <span class="meta-v mono tps-chip" id="v-ven">—</span>
+                        </div>
+                        <div class="card-id-cell" id="v-gravity-line">
+                          <span class="meta-k">Gravity</span>
+                          <span class="meta-v" id="v-gravity">—</span>
+                        </div>
+                      </div>
+                      <div class="view-block">
+                        <span class="meta-k">Headliner</span>
+                        <div class="view-v" id="v-headliner">—</div>
+                      </div>
+                      <div class="view-block">
+                        <span class="meta-k">Slugline</span>
+                        <div class="view-v" id="v-slugline">—</div>
+                      </div>
+                      <div class="view-block">
+                        <span class="meta-k">Prime lore</span>
+                        <div class="view-v prime-view" id="v-prime">—</div>
+                      </div>
+                    </div>
+                    <hr class="section-hr" />
+                    <div class="field relates">
+                      <span>Connections</span>
+                      <div class="relate-list" id="rel-list"></div>
+                      <button type="button" class="btn" id="btn-rel-open">Connect Related Lore</button>
+                      <div id="rel-form" class="rel-form" hidden>
+                        <div class="relate-row">
+                          <select id="rel-box" title="Source box in safe_box"></select>
+                          <select id="rel-card" title="Target lore unit"></select>
+                          <select id="rel-type" title="Relation type"></select>
+                        </div>
+                        <div class="relate-row">
+                          <button type="button" class="btn" id="btn-rel-add">Attach</button>
+                          <button type="button" class="btn linkish" id="btn-rel-type-add">+ type in box_sets</button>
+                          <button type="button" class="btn linkish" id="btn-rel-cancel">Cancel</button>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </section>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <footer class="status" id="status">starting…</footer>
+    </div>
+
+    <!-- Desk dialogs: datbox-core DatboxDesk (no window.confirm / alert) -->
+    <script src="/datbox-core/js/desk_dialog.js"></script>
+    <script src="theme.js"></script>
+    <script src="app.js"></script>
+  </body>
+</html>
